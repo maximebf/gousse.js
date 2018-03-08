@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <script src="/gousse.js"></script>
+</head>
+<body class="app-root">
+    <name-input label="Click Me!"></name-input>
+    <span data-connect="NameUpdated" data-content="Hello ${event.detail}"></span>
+
+    <template data-component="name-input">
+        <input type="text" data-emit="name">
+        <button data-dispatch="NameUpdated" data-dispatch-value="${this.name}" data-var="label"></button>
+    </template>
+</body>
+</html>

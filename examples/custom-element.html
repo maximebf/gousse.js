@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <script src="/gousse.js"></script>
+    <script>
+        component('name-input', function(props, children) {
+            return [
+                h('input', {type: 'text', emit: 'name'}),
+                h('button', {onclick: e => this.dispatch('NameUpdated', this.name)}, props.label)
+            ];
+        });
+    </script>
+</head>
+<body class="app-root">
+    <name-input label="Click me!"></name-input>
+    <span data-connect="NameUpdated" data-content="Hello ${event.detail}"></span>
+</body>
+</html>

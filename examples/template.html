@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <script src="/gousse.js"></script>
+    <script>
+        component('name-input', function(props, children) {
+            return template('name-input-tpl', Object.assign({}, props, {
+                'onclick:button': () => this.dispatch('NameUpdated', this.name)
+            }));
+        });
+    </script>
+</head>
+<body class="app-root">
+    <name-input label="Click me!"></name-input>
+    <span data-connect="NameUpdated" data-content="Hello ${event.detail}"></span>
+
+    <template id="name-input-tpl">
+        <input type="text" data-emit="name">
+        <button data-var="label"></button>
+    </template>
+</body>
+</html>

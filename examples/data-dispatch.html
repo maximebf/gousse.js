@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <script src="/gousse.js"></script>
+</head>
+<body class="app-root">
+    <input type="text" data-emit="name">
+    <button data-dispatch="NameUpdated">Click me!</button>
+    <span data-connect="NameUpdated" data-content="Hello ${window.emittedValues.name}"></span>
+</body>
+</html>

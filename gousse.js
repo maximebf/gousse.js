@@ -239,19 +239,24 @@ const attributeAnnotationTransformers = {
      * If data-content is provided, the innerText is re-generated everytime the event is dispatched.
      */
     connect: (node, rootNode, evalThisArg) => {
-        let placeholder = document.createComment('placeholder');
-        node.replaceWith(placeholder);
+        let visibility = node.getAttribute('data-visibility') || 'show';
+        if (visibility !== 'hide') {
+            node.classList.add('gousse-hide');
+        }
         on(node.getAttribute('data-connect'), e => {
             if (node.hasAttribute('data-content')) {
                 node.innerText = (function(event){
                     return eval("`" + node.getAttribute('data-content') + "`");
                 }.bind(evalThisArg))(e);
             }
-            if (placeholder) {
-                placeholder.replaceWith(node);
-                placeholder = null;
+            if (visibility === 'hide') {
+                node.classList.add('gousse-hide');
+            } else if (visibility === 'toggle') {
+                node.classList.toggle('gousse-hide');
+            } else {
+                node.classList.remove('gousse-hide');
             }
-        }, !node.hasAttribute('data-content'));
+        }, !node.hasAttribute('data-content') && !visibility);
     },
     /**
      * React to an emitted value
@@ -502,7 +507,8 @@ document.addEventListener('DOMContentLoaded', () => {
 function App(rootNode, spec) {
     ready(() => {
         if (spec === undefined && !(rootNode instanceof Node)) {
-            [spec, rootNode] = [rootNode, document.body];
+            spec = rootNode;
+            rootNode = document.body;
         } else {
             rootNode = rootNode || document.body;
         }
@@ -539,4 +545,6 @@ ready(() => {
             });
         });
     }
+
+    document.querySelector('head').appendChild(h('style', {type: 'text/css'}, '.gousse-hide { display: none; }'));
 });

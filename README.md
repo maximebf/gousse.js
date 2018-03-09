@@ -1,8 +1,7 @@
 # gousse.js
 
-A tiny (< 400 lines of code, 2.4Kb minified + gzipped) vanilla js library to build modern single page apps.
-
-("gousse de vanille" means "vanilla bean" in French)
+A tiny (~500 lines of code, 2.4Kb minified + gzipped) vanilla js library to build modern single page apps inspired by React+Redux.
+It's the perfect companion to quickly build small apps.
 
 Goals of gousse.js:
 
@@ -10,32 +9,46 @@ Goals of gousse.js:
  - Can be read, understood and modified by anyone
  - Fully written in ES6 with features supported by Chrome, Firefox, Edge and Safari (no need for Babel)
  - Make use of custom elements if supported
+ - No dependencies, no build chain, use directly from CDN.
 
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <script src="/gousse.js"></script>
-    <script>
-        component('name-input', function(props, children) {
-            return [
-                h('input', {type: 'text', emit: 'name'}),
-                h('button', {onclick: e => this.dispatch('NameUpdated', this.name)}, props.label)
-            ];
-        });
-    </script>
-</head>
-<body class="app-root">
-    <name-input label="Click me!"></name-input>
-    <span data-connect="NameUpdated" data-content="Hello ${event.detail}"></span>
-</body>
-</html>
+```js
+const nameInput = component(function(attrs, children) {
+    return [
+        h('input', {type: 'text', emit: 'name'}),
+        h('button', {onclick: e => this.dispatch('NameUpdated', this.name)}, attrs.label)
+    ];
+});
 
+h(document.body, {},
+    nameInput({label: 'click me'}),
+    connect('NameUpdated', e => h('span', {}, `Hello ${e.detail}`))
+);
 ```
 
 See the examples folder for more examples.
-You can find a fully fonctionnal demo app here: <https://github.com/maximebf/notes-app>
+You can find a fully fonctionnal app here: <https://github.com/maximebf/notes-app>
+
+*("gousse de vanille" means "vanilla bean" in French)*
+
+## Concepts
+
+Gousse provides the following functions:
+
+ - `dispatch()` ad `on()` to dispatch and listen to events
+ - `ready()` to wait for the DOM to be loaded
+ - `h()` to create DOM elements
+ - `template()` to instantiate template elements
+ - `component()` to create re-usable components
+ - `connect()` to bind elements to events
+
+It also provides some behaviors via data attributes (which will apply the above functions).
+
+While these functions can be used as simple helpers, they have been designed to work hand in hand to make it easy to create reactive apps. Gousse has been designed with these concepts in mind:
+
+ - components should be as immutable as possible
+ - they can react to state change by using the `connect()` function
+ - components emit events which will bubble up to the top
+ - other components / the app can react to these events and re-render themselves
 
 ## Events
 
@@ -78,10 +91,11 @@ You can use the following data attributes to automatically add some behaviors to
 
 Notes:
   
+  - the `app-root` class on the body is necessary, read further
   - `data-dispatch-event` and `data-dispatch-value` are optionnals (respectively default to *click* and `null`)
   - when `data-connect` is used, the element is not visible until the event is dispatched
   - `data-content` is optionnal and can be used to set the content of the element with an interpolated value
-  - the `app-root` class on the body is necessary, read further
+  - you can also use `data-visibility` with `data-connect` to indicate what to do with the element visibility (possible values: show, hide, toggle)
 
 ## Emitted values
 
@@ -109,8 +123,6 @@ You can also use the following data attributes to emit and react to emitted valu
 
 ## Creating & inserting elements
 
-Gousse includes 2 functions to create & insert elements.
-
 `h(tagName, attributes, ...children)` is used to create elements.
 
 ```js
@@ -125,11 +137,9 @@ document.body.appendChild(form);
 
 *attributes* is an object. Events are supported if prefixed by 'on'.
 The special attribute *emit* will make the node an emitted (the value of the attribute is the name of the emitted value).
+`h()` makes use of `appendNodes()` under the hood.
 
-`h()` makes use of `appendNodes(parent, nodes, insertBefore)` under the hood, our second helper function.
-As a result, children for `h()` can be of any type supported by `appendNodes()`.
-
-This second function supports the following types as nodes to append:
+ `appendNodes(parent, nodes, insertBefore)` supports the following types as nodes to append:
 
  - `Node`: DOM nodes
  - string: will be converted to text nodes
@@ -141,14 +151,14 @@ If *insertBefore* is provided, nodes will be inserted before the provided node.
 
 ## Templates
 
-Gousse allows you to create elements from `<template>` elements using the `template(id, vars, ...children)` function.
+Gousse allows you to create elements from `<template>` elements using the `template(id, vars, ...children)` function. It returns a promise that resolves to a DocumentFragment ready to be inserted in the document.
 
 The *vars* argument is an object where values can be injected in the template using `data-var`.
 You can also use `data-content` to interpolate the content: `<span data-var="name" data-content="Hello ${value}"></span>`.
 
 ```html
 <script>
-    const node = template('my-tpl', {label: 'click me'});
+    const node = await template('my-tpl', {label: 'click me'});
 </script>
 <template id="my-tpl">
     <input type="text">
@@ -159,19 +169,19 @@ You can also use `data-content` to interpolate the content: `<span data-var="nam
 *vars* can also contain event listeners if the key is prefixed with 'on'. An additional selector can be provided separated by ':'.
 Eg: `{label: 'click me', 'onclick:button': e => alert('hello')}`.
 
-The template id can be a string, a node our a promise which must resolve to a node.
+The template id can be a string, a node or a promise which must resolve to a node.
 Use `fetchTemplate(url, options)` (same arguments as `fetch()`) to fetch a remote HTML file as template.
 
 ## Components
 
-The combination of the previous helpers make it easy to create a component system. The `component()` function can help you doing so.
+The combination of the previous functions makes it easy to create a component system. The `component()` function can help you doing so.
 
 The function can be used in 2 ways:
 
  - `component(name, renderCallback)` to create a custom element
  - `const myComponent = component(renderCallback)` to create a functionnal component for use in JS only
 
-(Note that the former also receives a function which can be used to create elements of its type.)
+(Note that the former also returns a function which can be used to create elements of its type.)
 
 *renderCallback* is a function which takes the following arguments:
 
@@ -194,7 +204,7 @@ const node = nameInput({label: 'click me!'});
 
 (Note that we are not using an arrow function to get access to `this` and avoid using the *ctx* argument.)
 
-Notice the *emit* attribute and the `this.name` in the event handler. In components, emitted values are scoped to the component (they will not bubble up further) and are made available on the component context.
+Notice the *emit* attribute and `this.name` in the event handler. In components, emitted values are scoped to the component (they will not bubble up further) and are made available on the component context.
 
 The following methods and properties are available on the context:
 
@@ -242,7 +252,7 @@ Finally, you can also create components directly from templates using the `data-
 To facilitate reacting to global events, you can use the `connect()` function.
 
 `connect(eventName, listener, placeholder, onceOnly)` is the basic form of the function. The last two arguments are optionnal.
-The function returns a promise which will resolve when the event is dispatched for the first time or if a placeholder is provided.
+The function returns a promise which will resolve when the event is dispatched for the first time or resolve immediatly if a placeholder is provided.
 
 *eventName* can be a single name or an array of names.
 *placeholder* can either be a node or `true` in which case the listener will be called without arguments immediatly.
@@ -279,9 +289,10 @@ h(document.body, {},
 
 ## The App
 
-By default, gousse does not do any actions on your document. For data attributes to be processed, you will need to append the `app-root` class to the containing element (ie. body in most use cases).
+By default, gousse does not do any actions on your document. For data attributes to be processed, you will need to add the `app-root` class to the containing element (ie. the body in most use cases).
 
-You can initilize the app from the code using the `App()` function. It can take the following arguments:
+Alternatively, you can initilize the app from the code using the `App()` function (in this case, do not use the `app-root` class).
+It can take the following arguments:
 
  - `App(function)`: executes the function and append the returned nodes to the root node using `appendNodes()`
  - `App(nodes)`: append the nodes to the root node using `appendNodes()`
@@ -289,6 +300,8 @@ You can initilize the app from the code using the `App()` function. It can take 
 
 `App()` only perform the above actions once the document is loaded. It also transforms the data attributes and setup the root emitters context.
 It will dispatch an `AppReady` event when it has performed all the above.
+
+Optionnaly, the app can be scoped to an element by passing a root node as first argument.
 
 Example:
 

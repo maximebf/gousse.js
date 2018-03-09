@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <script src="/gousse.js"></script>
+    <script>
+        const nameInput = component(function(props, children) {
+            return [
+                h('input', {type: 'text', emit: 'name'}),
+                h('button', {onclick: e => this.dispatch('NameUpdated', this.name)}, props.label)
+            ];
+        });
+
+        App({
+            AppReady: () => {
+                appendNodes(document.body, router({
+                    '/': () => nameInput({label: 'Say hello!'}),
+                    '/say': params => [
+                        h('h1', {}, `Hello ${params.name}`),
+                        h('a', {go: '/'}, 'back')
+                    ],
+                    '404': () => h('span', {}, 'not found :(')
+                }));
+            },
+            NameUpdated: e => router.go('/say', {name: e.detail})
+        });
+    </script>
+</head>
+<body>
+    <a data-go="/say?name=toto">toto</a>
+</body>
+</html>

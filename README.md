@@ -1,6 +1,6 @@
 # gousse.js
 
-A tiny (~500 lines of code, 2.4Kb minified + gzipped) vanilla js library to build modern single page apps inspired by React+Redux.
+A tiny (~600 lines of code, 3.3Kb minified + gzipped) vanilla js library to build modern single page apps inspired by React+Redux.
 It's the perfect companion to quickly build small apps.
 
 Goals of gousse.js:
@@ -34,12 +34,13 @@ You can find a fully fonctionnal app here: <https://github.com/maximebf/notes-ap
 
 Gousse provides the following functions:
 
- - `dispatch()` ad `on()` to dispatch and listen to events
+ - `dispatch()` and `on()` to dispatch and listen to events
  - `ready()` to wait for the DOM to be loaded
  - `h()` to create DOM elements
  - `template()` to instantiate template elements
  - `component()` to create re-usable components
  - `connect()` to bind elements to events
+ - `router()` and `router.go()` to react to changes of the URL and change the URL
 
 It also provides some behaviors via data attributes (which will apply the above functions).
 
@@ -50,10 +51,13 @@ While these functions can be used as simple helpers, they have been designed to 
  - components emit events which will bubble up to the top
  - other components / the app can react to these events and re-render themselves
 
+Note: none of the examples use a module loader but gousse respects the UMD convention.
+However, if loaded directly via `<script>` it will add the exports to the global scope.
+
 ## Events
 
 Gousse introduces some functions to help you manage an event lifecycle.
-We call global events, events which are dispatched on document.body.
+We call global events, events which are dispatched on document.
 
 `dispatch(eventName, data, node)` is used to dispatch events. If `node` is omitted, the event is dispatched from the body.
 Events are dispatched using `CustomEvent` which means the data is available under the `detail` property.
@@ -189,7 +193,7 @@ The function can be used in 2 ways:
  - *children*: an array of children nodes
  - *ctx*: (also the value of `this` in the context of renderCallback) the component context
 
-The function must return nodes compatible with `appendNodes()`.
+The function can return arrays of nodes, a node or a promise.
 
 ```js
 const nameInput = component(function(attrs) {
@@ -286,6 +290,37 @@ h(document.body, {},
     }, 'waiting for input...'),
 )
 ```
+
+## Routing
+
+Gousse includes a small routing facility. The *RouteChanged* event is automatically dispatched everytime the url changes.
+By default, the router uses the hash part of the url. You can however activate the usage of the history api using `router.pushstate()`.
+
+The main function `router(routes)` uses `connect('RouteChanged', listeners)` to react on route changes. Thus it returns a promise.
+The *routes* argument is an object where keys are URLs and value functions which will receive the (params, state) arguments. *params* is an object containing the parameters of the query string. *state* is only relevant if pushstate is used.
+
+The URLs of the routes object can make use of placeholder values `{}` to match path segments. `/posts/{}` will match `/posts/post-1` but neither `/posts` or `/posts/post-1/subpost`.
+The route function will receive the value of the segment as the first argument followed by the normal params and state arguments.
+
+You can navigate to different URLs using `router.go(url, params, state)` where *params* and *state* are optionnal. *state* is only meaningfull in case pushstate is used. *params* can be an object which will be converted to query string.
+
+```js
+const hello = component(attrs => [
+    h('h1', {}, `Hello ${attrs.name}`),
+    h('a', {go: '/'})
+]);
+
+h(document.body, {}, router({
+    '/': () => [
+        h('input', {type: 'text', emit: 'name'}),
+        h('button', {onclick: () => router.go('/hello', {name: emittedValues.name})}, 'click me')
+    ],
+    '/hello': params => hello({name: params.name}),
+    '/hello/{}': name => hello({name})
+}))
+```
+
+Notice the *go* attribute on the anchor at line 3. It's a special attribute which will make anchor elements use `router.go()` instead of their normal behavior. This is also available through `data-go` for existing DOM elements.
 
 ## The App
 

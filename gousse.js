@@ -3,10 +3,21 @@
  * MIT License - (c) Maxime Bouroumeau-Fuseau 2018
  */
 
+(function (factory) {
+    if (typeof define === 'function' && define.amd) {
+        define([], factory);
+    } else if (typeof exports === 'object' && typeof exports.nodeName !== 'string') {
+        module.exports = factory();
+    } else {
+        // we add the exports directly on the window object for global access, old-style!
+        Object.assign(window, factory());
+    }
+})(() => {
+
 /**
  * Listen to events from a node or globally
  * 
- * The first argument can be skipped for global events (will dispatch from document.body)
+ * The first argument can be skipped for global events (will dispatch from document)
  * The first argument can be a node or a selector.
  * You can register multiple events at the same time using an object
  * as the first argument (with keys as event names, values as listeners).
@@ -16,10 +27,10 @@ function on(node, eventName, listener, onceOnly) {
         onceOnly = listener;
         listener = eventName;
         eventName = node;
-        node = document.body;
+        node = document;
     } else if (!(node instanceof Node)) {
         if (!node) {
-            node = document.body;
+            node = document;
         } else if (typeof(node) === 'string') {
             node = document.querySelector(node);
         } else {
@@ -49,7 +60,7 @@ function on(node, eventName, listener, onceOnly) {
  */
 function dispatch(eventName, data, node) {
     let e = new CustomEvent(eventName, {detail: data, bubbles: true});
-    (node || document.body).dispatchEvent(e);
+    (node || document).dispatchEvent(e);
 }
 
 /**
@@ -90,10 +101,7 @@ function ensureArray(items) {
     if (items instanceof NodeList) {
         return Array.prototype.slice.call(items, 0);
     }
-    if (!Array.isArray(items)) {
-        return [items];
-    }
-    return items;
+    return items && !Array.isArray(items) ? [items] : items;
 }
 
 /**
@@ -144,12 +152,20 @@ function h(tagName, attrs, ...children) {
         Object.entries(attrs).forEach(([name, value]) => {
             if (name === 'emit') {
                 emitter(e, value);
+            } else if (e.tagName === 'A' && name === 'go') {
+                e.addEventListener('click', e => {
+                    e.preventDefault();
+                    router.go(value);
+                });
             } else if (name.match(/^on/)) {
                 e.addEventListener(name.substring(2), attrs[name]);
             } else {
                 e.setAttribute(name, attrs[name]);
             }
         });
+    }
+    if (e.tagName === 'A' && !e.hasAttribute('href')) {
+        e.setAttribute('href', 'javascript:');
     }
     appendNodes(e, children);
     return e;
@@ -181,7 +197,7 @@ function connect(eventName, listener, placeholder, onceOnly) {
                 if (currentNodes) {
                     appendNodes(currentNodes[0].parentNode, nodes, currentNodes[0]);
                     currentNodes.forEach(node => node.parentNode.removeChild(node));
-                } else {
+                } else if (nodes) {
                     resolve(nodes);
                 }
                 currentNodes = nodes;
@@ -276,6 +292,19 @@ const attributeAnnotationTransformers = {
                 }
             }
         });
+    },
+    go: (node, rootNode, evalThisArg) => {
+        if (node.tagName === 'A') {
+            node.addEventListener('click', e => {
+                e.preventDefault();
+                router.go((function() {
+                    return eval("`" + node.getAttribute('data-go') + "`");
+                }.bind(evalThisArg))());
+            });
+            if (!node.hasAttribute('href')) {
+                node.setAttribute('href', 'javascript:');
+            }
+        }
     }
 };
 
@@ -491,9 +520,97 @@ function ready(callback) {
     });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    ready.dispatched = true;
-});
+/**
+ * Register routes and return a Promise which will eventually return with the result of the listeners
+ */
+function router(routes) {
+    return connect('RouteChanged', () => {
+        for (let url of Object.keys(routes)) {
+            let matches = router.match(url, router.current.url);
+            if (matches) {
+                return routes[url](...matches, router.current.params, router.current.state);
+            }
+        }
+        if ('404' in routes) {
+            return routes['404'](router.current.params, router.current.state);
+        }
+    }, true);
+}
+
+/**
+ * Whether the templated url matches the given url
+ * 
+ * The template can be a regexp or a string. In the latter case, slashes will be escaped
+ * and placeholder in the form of {} will be transformed to matching groups.
+ */
+router.match = function(template, url) {
+    let names = [];
+    url = url.replace(/\/$/, '');
+    url = url === '' ? '/' : url;
+    if (typeof template === 'string') {
+        template = template.replace('/', '\\/').replace('.', '\\.').replace(/\{[^}]+\}/g, '([^/]+)');
+        template = new RegExp('^' + template + '$');
+    }
+    let matches = url.match(template);
+    return matches ? matches.slice(1) : false;
+};
+
+router.usePushState = false;
+router._hashchangeListener = () => router.dispatch(window.location.hash.substr(1));
+router._popstateListener = e => router.dispatch(window.location.pathname + window.location.search, e ? e.state : null);
+
+/**
+ * Use the history api (pushstate) instead of the hash
+ */
+router.pushstate = function() {
+    window.removeEventListener('hashchange', router._hashchangeListener);
+    window.addEventListener('popstate', router._popstateListener);
+    router.usePushState = true;
+    router._popstateListener(window.history);
+};
+
+router.parseQueryString = function(qs) {
+    let params = {};
+    qs.split('&').forEach(v => {
+        let [key, value] = v.indexOf('=') !== -1 ? v.split('=') : true;
+        params[key] = decodeURIComponent(value);
+    });
+    return params;
+};
+
+router.buildQueryString = function(params) {
+    return Object.entries(params).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+};
+
+/**
+ * Dispatch the RouteChanged event
+ */
+router.dispatch = function(url, state) {
+    let params = {};
+    url = url === '' ? '/' : url;
+    if (url.indexOf('?') !== -1) {
+        params = router.parseQueryString(url.substr(url.indexOf('?') + 1));
+        url = url.substr(0, url.indexOf('?'));
+    }
+    router.current = {url, state, params};
+    dispatch('RouteChanged', router.current);
+};
+
+/**
+ * Navigate to the url
+ */
+router.go = function(url, params, state) {
+    if (params) {
+        url += (url.indexOf('?') !== -1 ? '&' : '?') + router.buildQueryString(params);
+    }
+    if (router.usePushState) {
+        window.history.pushState(state || {}, '', url);
+        router._popstateListener({state});
+        
+    } else {
+        window.location.hash = url;
+    }
+};
 
 /**
  * Initializes the app
@@ -529,6 +646,10 @@ function App(rootNode, spec) {
     });
 }
 
+window.addEventListener('hashchange', router._hashchangeListener);
+document.addEventListener('DOMContentLoaded', () => { ready.dispatched = true; });
+router._hashchangeListener();
+
 ready(() => {
     // App can be automatically initialized with the app-root class
     const appNode = document.querySelector('.app-root');
@@ -547,4 +668,9 @@ ready(() => {
     }
 
     document.querySelector('head').appendChild(h('style', {type: 'text/css'}, '.gousse-hide { display: none; }'));
+});
+
+// exports
+return {on, dispatch, emitter, emitterContext, appendNodes, h, connect,
+    fetchTemplate, template, component, ready, router, App};
 });

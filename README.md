@@ -251,7 +251,7 @@ Finally, you can also create components directly from templates using the `data-
 To facilitate reacting to global events, you can use the `connect()` function.
 
 `connect(eventName, listener, placeholder, onceOnly)` is the basic form of the function. The last two arguments are optionnal.
-The function returns a promise which will resolve when the event is dispatched for the first time or resolve immediatly if a placeholder is provided.
+The function returns a container element with the css class *gousse-connect* which will contain the returned elements.
 
 *eventName* can be a single name or an array of names.
 *placeholder* can either be a node or `true` in which case the listener will be called without arguments immediatly.
@@ -291,7 +291,7 @@ h(document.body, {},
 Gousse includes a small routing facility. The *RouteChanged* event is automatically dispatched everytime the url changes.
 By default, the router uses the hash part of the url. You can however activate the usage of the history api using `router.pushstate()`.
 
-The main function `router(routes)` uses `connect('RouteChanged', listeners)` to react on route changes. Thus it returns a promise.
+The main function `router(routes)` uses `connect('RouteChanged', listeners)` to react on route changes.
 The *routes* argument is an object where keys are route paths and value functions which will receive the (params, state) arguments. *params* is an object containing the parameters of the query string. *state* is only relevant if pushstate is used.
 
 The path of the routes object can make use of placeholder values `{}` to match path segments. `/posts/{}` will match `/posts/post-1` but neither `/posts` or `/posts/post-1/subpost`.

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <script src="/gousse.min.js"></script>
+    <script>
+        const ROUTES = {
+            home: '/*',
+            ask: '/{prefix}/*',
+            say: '/{prefix}/{name}'
+        };
+
+        const inputWithButton = component(function(attrs, children) {
+            return h('div', {},
+                h('label', {}, attrs.label),
+                h('input', {type: 'text', emit: 'value', value: attrs.value || '', placeholder: attrs.placeholder || ''}),
+                h('button', {onclick: e => this.dispatch('InputUpdated', this.value)}, 'Go')
+            );
+        });
+
+        App(() => {
+            return router({
+                [ROUTES.home]: () => [
+                    inputWithButton({label: 'Prefix:', value: router.current.params.prefix,
+                        onInputUpdated: e => router.go(ROUTES.ask, {prefix: e.detail})}),
+                    router(ROUTES.ask, prefix => [
+                        inputWithButton({label: 'Name:', value: router.current.params.name,
+                            onInputUpdated: e => router.go(ROUTES.say, {prefix, name: e.detail})}),
+                        router(ROUTES.say, (prefix, name) => [
+                            h('h1', {}, `${prefix} ${name}`),
+                            h('a', {go: ROUTES.home}, 'Start over')
+                        ])
+                    ])
+                ]
+            });
+        });
+    </script>
+</head>
+<body>
+</body>
+</html>

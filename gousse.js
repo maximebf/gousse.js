@@ -27,10 +27,13 @@ function on(node, eventName, listener, onceOnly) {
         onceOnly = listener;
         listener = eventName;
         eventName = node;
-        node = document;
+        node = document.body;
+    } else if (node instanceof DocumentFragment) {
+        node.childNodes.forEach(child => on(child, eventName, listener, onceOnly));
+        return;
     } else if (!(node instanceof Node)) {
         if (!node) {
-            node = document;
+            node = document.body;
         } else if (typeof(node) === 'string') {
             node = document.querySelector(node);
         } else {
@@ -60,7 +63,7 @@ function on(node, eventName, listener, onceOnly) {
  */
 function dispatch(eventName, data, node) {
     let e = new CustomEvent(eventName, {detail: data, bubbles: true});
-    (node || document).dispatchEvent(e);
+    (node || document.body).dispatchEvent(e);
 }
 
 /**
@@ -69,7 +72,7 @@ function dispatch(eventName, data, node) {
  */
 function emitter(node, name, eventNames) {
     ensureArray(eventNames || ['change', 'keyup']).forEach(event => {
-        node.addEventListener(event, e => dispatch('ValueEmitted', {name, value: e.target.value}, node));
+        on(node, event, e => dispatch('ValueEmitted', {name, value: e.target.value}, node));
     });
     return node;
 }
@@ -82,18 +85,12 @@ function emitter(node, name, eventNames) {
  * Events propagation will be stopped.
  */
 function emitterContext(vars, nodes) {
-    return Promise.resolve(nodes).then(nodes => {
-        return ensureArray(nodes).map(node => {
-            if (node instanceof DocumentFragment) {
-                emitterContext(vars, node.childNodes);
-                return node;
-            }
-            node.addEventListener('ValueEmitted', e => {
-                e.stopPropagation();
-                vars[e.detail.name] = e.detail.value;
-            });
-            return node;
+    return ensureArray(nodes).map(node => {
+        on(node, 'ValueEmitted', e => {
+            e.stopPropagation();
+            vars[e.detail.name] = e.detail.value;
         });
+        return node;
     });
 }
 
@@ -101,40 +98,43 @@ function ensureArray(items) {
     if (items instanceof NodeList) {
         return Array.prototype.slice.call(items, 0);
     }
-    return items && !Array.isArray(items) ? [items] : items;
+    return !items ? [] : (!Array.isArray(items) ? [items] : items);
 }
 
 /**
  * Append children nodes to the parent node.
  * 
- * If insertBefore is provided, children will be inserted before this node.
+ * If insertBefore is provided, nodes will be inserted before this node.
  * Children supports the following inputs: array, Node, text, Promise
  */
-function appendNodes(parent, children, insertBefore) {
+function appendNodes(parent, nodes, insertBefore) {
     if (!(parent instanceof Node)) {
         parent = document.querySelector(parent);
     }
-    for (let child of ensureArray(children)) {
-        if (Array.isArray(child)) {
-            appendNodes(parent, child);
-        } else if (child instanceof Promise) {
+    let out = [];
+    for (let node of ensureArray(nodes)) {
+        if (Array.isArray(node)) {
+            out = out.concat(appendNodes(parent, node, insertBefore));
+        } else if (node instanceof Promise) {
             let placeholder = document.createComment('placeholder');
-            appendNodes(parent, placeholder, insertBefore);
-            child.then(nodes => {
+            out = out.concat(appendNodes(parent, placeholder, insertBefore));
+            node.then(nodes => {
                 appendNodes(parent, nodes, placeholder);
                 parent.removeChild(placeholder);
             });
-        } else if (child) {
-            if (!(child instanceof Node)) {
-                child = document.createTextNode(child);
+        } else if (node) {
+            if (!(node instanceof Node) && !(node instanceof DocumentFragment)) {
+                node = document.createTextNode(node);
             }
             if (insertBefore) {
-                parent.insertBefore(child, insertBefore);
+                parent.insertBefore(node, insertBefore);
             } else {
-                parent.appendChild(child);
+                parent.appendChild(node);
             }
+            out.push(node);
         }
     }
+    return out;
 }
 
 /**
@@ -150,7 +150,9 @@ function h(tagName, attrs, ...children) {
     }
     if (attrs) {
         Object.entries(attrs).forEach(([name, value]) => {
-            if (name === 'emit') {
+            if (name === 'innerHTML') {
+                Promise.resolve(value).then(html => { e.innerHTML = html; });
+            } else if (name === 'emit') {
                 emitter(e, value);
             } else if (e.tagName === 'A' && name === 'go') {
                 e.addEventListener('click', e => {
@@ -189,38 +191,33 @@ function h(tagName, attrs, ...children) {
  * events in an object where the keys are eventNames and values listeners.
  */
 function connect(eventName, listener, placeholder, onceOnly) {
-    return new Promise((resolve, reject) => {
-        let currentNodes;
-        const replace = nodes => {
-            return Promise.resolve(nodes).then(nodes => {
-                nodes = ensureArray(nodes);
-                if (currentNodes) {
-                    appendNodes(currentNodes[0].parentNode, nodes, currentNodes[0]);
-                    currentNodes.forEach(node => node.parentNode.removeChild(node));
-                } else if (nodes) {
-                    resolve(nodes);
-                }
-                currentNodes = nodes;
-            });
-        };
-
-        if (eventName instanceof Promise) {
-            eventName.then(result => replace(listener(result)));
-        } else if (Array.isArray(eventName) || typeof(eventName) === 'string') {
-            on(eventName, e => replace(listener(e)), onceOnly);
-        } else {
-            onceOnly = false;
-            placeholder = listener;
-            listener = null;
-            Object.entries(eventName).forEach(([key, value]) => on(key, e => replace(value(e))));
+    const container = h('div', {class: 'gousse-connect'});
+    const render = e => {
+        let result = listener(e);
+        if (result) {
+            h(container, {}, result);
+        } else if (result === false) {
+            container.innerHTML = '';
         }
+    };
 
-        if (placeholder === true && listener) {
-            replace(listener());
-        } else if (placeholder !== true && placeholder) {
-            replace(placeholder);
-        }
-    });
+    if (eventName instanceof Promise) {
+        eventName.then(render);
+    } else if (Array.isArray(eventName) || typeof(eventName) === 'string') {
+        on(eventName, render, onceOnly);
+    } else {
+        onceOnly = false;
+        placeholder = listener;
+        listener = null;
+        Object.entries(eventName).forEach(([key, value]) => on(key, render));
+    }
+
+    if (placeholder === true && listener) {
+        render();
+    } else if (placeholder && listener !== true) {
+        appendNodes(container, placeholder);
+    }
+    return container;
 }
 
 const attributeAnnotationTransformers = {
@@ -231,7 +228,7 @@ const attributeAnnotationTransformers = {
      * The value will be interpolated.
      */
     dispatch: (node, rootNode, evalThisArg) => {
-        node.addEventListener(node.getAttribute('data-dispatch-event') || 'click', () => {
+        on(node, node.getAttribute('data-dispatch-event') || 'click', () => {
             let value = null;
             if (node.hasAttribute('data-dispatch-value')) {
                 value = (function() {
@@ -295,7 +292,7 @@ const attributeAnnotationTransformers = {
     },
     go: (node, rootNode, evalThisArg) => {
         if (node.tagName === 'A') {
-            node.addEventListener('click', e => {
+            on(node, 'click', e => {
                 e.preventDefault();
                 router.go((function() {
                     return eval("`" + node.getAttribute('data-go') + "`");
@@ -309,21 +306,12 @@ const attributeAnnotationTransformers = {
 };
 
 function transformAttributeAnnotations(nodes, rootNode, evalThisArg) {
-    ensureArray(nodes || document.body).forEach(node => {
+    ensureArray(nodes).forEach(node => {
         Object.entries(attributeAnnotationTransformers).forEach(([name, callback]) => {
             node.querySelectorAll(`[data-${name}]`).forEach(node => callback(node, rootNode, evalThisArg));
         });
     });
     return nodes;
-}
-
-async function fetchTemplate(url, options) {
-    let response = await fetch(url, options);
-    let content = await response.text();
-    let tpl = h('template', {id: url});
-    tpl.innerHTML = content;
-    document.body.appendChild(tpl);
-    return tpl;
 }
 
 /**
@@ -384,9 +372,10 @@ async function template(tpl, vars, ...children) {
  * and function-based components
  */
 class ComponentContext {
-    constructor(renderCallback, eventDispatcher) {
+    constructor(renderCallback, eventDispatcher, rootNode) {
         this.renderCallback = renderCallback;
         this.eventDispatcher = eventDispatcher;
+        this.rootNode = rootNode;
         this.connectCallbacks = [];
         this.disconnectCallbacks = [];
     }
@@ -426,9 +415,16 @@ class ComponentContext {
         dispatch('ValueEmitted', {name, value}, this.eventDispatcher || this.node);
     }
     async render(attrs, children) {
-        this.nodes = await Promise.resolve(emitterContext(this,
-            this.renderCallback.call(this, attrs, children, this)));
-        return transformAttributeAnnotations(this.nodes, this.shadowRoot, this);
+        let result = await this.renderCallback.call(this, attrs, children, this);
+        this.nodes = await Promise.all(ensureArray(result));
+        this.node = this.rootNode || this.nodes[this.nodes.length - 1];
+        emitterContext(this, this.nodes);
+        Object.entries(attrs).forEach(([key, value]) => {
+            if (key.match(/^on/)) {
+                this.nodes.forEach(node => on(node, key.substr(2), value));
+            }
+        })
+        return transformAttributeAnnotations(this.nodes, this.eventDispatcher, this);
     }
     querySelector(...args) {
         return this.node.querySelector(...args);
@@ -451,7 +447,7 @@ function defineComponentElement(name, renderCallback) {
         constructor() {
             super();
             const shadow = this.attachShadow({mode: 'open'});
-            this.context = new ComponentContext(renderCallback, this);
+            this.context = new ComponentContext(renderCallback, this, this.shadowRoot);
         }
         render() {
             let attrs = {};
@@ -462,7 +458,6 @@ function defineComponentElement(name, renderCallback) {
             appendNodes(this.shadowRoot, this.context.render(attrs, children));
         }
         connectedCallback() {
-            this.context.node = this.shadowRoot;
             this.render();
         }
         disconnectedCallback() {
@@ -497,7 +492,6 @@ function component(name, renderCallback) {
     return async function(attrs, ...children) {
         const ctx = new ComponentContext(renderCallback);
         await ctx.render(attrs, children);
-        ctx.node = ctx.nodes[ctx.nodes.length - 1];
         // these events are deprecated but only way to do it without knowning the parent
         // custom elements should take over soon enough
         ctx.node.addEventListener('DOMNodeInsertedIntoDocument', () => ctx.connected());
@@ -523,17 +517,29 @@ function ready(callback) {
 /**
  * Register routes and return a Promise which will eventually return with the result of the listeners
  */
-function router(routes) {
+function router(routes, routeCallback) {
+    if (typeof routes === 'string') {
+        routes = {[routes]: routeCallback};
+    }
+    let current;
     return connect('RouteChanged', () => {
         for (let url of Object.keys(routes)) {
-            let matches = router.match(url, router.current.url);
+            let [matches, wildcard] = router.match(url, router.current.url);
             if (matches) {
+                if (wildcard && current && current.url === url && current.matches.toString() === matches.toString()) {
+                    // The route is the current one and ends with a wildcard. The part before the wildcard has not changed
+                    // during this route change so we don't re-render
+                    return;
+                }
+                current = {url, matches};
                 return routes[url](...matches, router.current.params, router.current.state);
             }
         }
+        current = null;
         if ('404' in routes) {
             return routes['404'](router.current.params, router.current.state);
         }
+        return false;
     }, true);
 }
 
@@ -544,15 +550,21 @@ function router(routes) {
  * and placeholder in the form of {} will be transformed to matching groups.
  */
 router.match = function(template, url) {
-    let names = [];
+    let names = [], wildcard;
     url = url.replace(/\/$/, '');
     url = url === '' ? '/' : url;
-    if (typeof template === 'string') {
-        template = template.replace('/', '\\/').replace('.', '\\.').replace(/\{[^}]+\}/g, '([^/]+)');
-        template = new RegExp('^' + template + '$');
+    if (typeof template === 'string' && template.substr(0, 1) !== '^') {
+        template = template.replace(/\//g, '\\/').replace(/\./g, '\\.').replace(/\{[^}*]+\}/g, '([^/]+)');
+        if (template.match(/\\\/\{?\*\}?$/)) {
+            wildcard = template.substr(template.length - 1, 1) === '*' ? '.*' : '(.*)';
+            template = template.substr(0, template.length - 3) + wildcard;
+        }
+        template = new RegExp('^' + template + '$', 'i');
+    } else if (typeof template === 'string' && template.substr(0, 1) === '^') {
+        template = new RegExp(template, 'i');
     }
     let matches = url.match(template);
-    return matches ? matches.slice(1) : false;
+    return [matches ? matches.slice(1) : false, wildcard === '.*']
 };
 
 router.usePushState = false;
@@ -565,6 +577,7 @@ router._popstateListener = e => router.dispatch(window.location.pathname + windo
 router.pushstate = function() {
     window.removeEventListener('hashchange', router._hashchangeListener);
     window.addEventListener('popstate', router._popstateListener);
+    window.addEventListener('hashchange', () => dispatch('RouteHashChanged', window.location.hash.substr(1)));
     router.usePushState = true;
     router._popstateListener(window.history);
 };
@@ -572,7 +585,7 @@ router.pushstate = function() {
 router.parseQueryString = function(qs) {
     let params = {};
     qs.split('&').forEach(v => {
-        let [key, value] = v.indexOf('=') !== -1 ? v.split('=') : true;
+        let [key, value] = v.indexOf('=') !== -1 ? v.split('=') : [v, true];
         params[key] = decodeURIComponent(value);
     });
     return params;
@@ -600,15 +613,21 @@ router.dispatch = function(url, state) {
  * Navigate to the url
  */
 router.go = function(url, params, state) {
-    if (params) {
-        url += (url.indexOf('?') !== -1 ? '&' : '?') + router.buildQueryString(params);
+    url = url.replace(/\/\{?\*\}?$/, '');
+    if (params && Object.keys(params).length) {
+        Object.keys(params).forEach(k => {
+            if (url.indexOf(`{${k}}`) !== -1) {
+                url = url.replace(`{${k}}`, params[k]);
+                delete params[k];
+            }
+        });
+        url += Object.keys(params).length ? ((url.indexOf('?') !== -1 ? '&' : '?') + router.buildQueryString(params)) : '';
     }
-    if (router.usePushState) {
+    if (router.usePushState && url.substr(0, 1) !== '#') {
         window.history.pushState(state || {}, '', url);
         router._popstateListener({state});
-        
     } else {
-        window.location.hash = url;
+        window.location.hash = url.substr(0, 1) === '#' ? url.substr(1) : url;
     }
 };
 
@@ -648,9 +667,10 @@ function App(rootNode, spec) {
 
 window.addEventListener('hashchange', router._hashchangeListener);
 document.addEventListener('DOMContentLoaded', () => { ready.dispatched = true; });
-router._hashchangeListener();
 
 ready(() => {
+    router._hashchangeListener();
+
     // App can be automatically initialized with the app-root class
     const appNode = document.querySelector('.app-root');
     if (appNode) {
@@ -667,10 +687,13 @@ ready(() => {
         });
     }
 
-    document.querySelector('head').appendChild(h('style', {type: 'text/css'}, '.gousse-hide { display: none; }'));
+    document.querySelector('head').appendChild(h('style', {type: 'text/css'}, `
+        .gousse-hide { display: none; }
+        .gousse-connect { display: inline-block; }
+    `));
 });
 
 // exports
 return {on, dispatch, emitter, emitterContext, appendNodes, h, connect,
-    fetchTemplate, template, component, ready, router, App};
+    template, component, ready, router, App};
 });

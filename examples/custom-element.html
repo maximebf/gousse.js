@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <script src="/gousse.js"></script>
     <script>
-        component('name-input', function(props, children) {
+        component('name-input', function(attrs, children) {
             return [
                 h('input', {type: 'text', emit: 'name'}),
-                h('button', {onclick: e => this.dispatch('NameUpdated', this.name)}, props.label)
+                h('button', {onclick: e => this.dispatch('NameUpdated', this.name)}, attrs.label)
             ];
         });
     </script>

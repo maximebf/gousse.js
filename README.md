@@ -25,8 +25,8 @@ h(document.body, {},
 );
 ```
 
+You can find a fully fonctionnal app here: <https://github.com/maximebf/notes-app>.  
 See the examples folder for more examples.
-You can find a fully fonctionnal app here: <https://github.com/maximebf/notes-app>
 
 *("gousse de vanille" means "vanilla bean" in French)*
 
@@ -57,7 +57,7 @@ However, if loaded directly via `<script>` it will add the exports to the global
 ## Events
 
 Gousse introduces some functions to help you manage an event lifecycle.
-We call global events, events which are dispatched on document.
+We call global events, events which are dispatched on document.body.
 
 `dispatch(eventName, data, node)` is used to dispatch events. If `node` is omitted, the event is dispatched from the body.
 Events are dispatched using `CustomEvent` which means the data is available under the `detail` property.
@@ -125,7 +125,7 @@ You can also use the following data attributes to emit and react to emitted valu
 
 (`data-content` is optional)
 
-## Creating & inserting elements
+## Creating elements
 
 `h(tagName, attributes, ...children)` is used to create elements.
 
@@ -141,17 +141,13 @@ document.body.appendChild(form);
 
 *attributes* is an object. Events are supported if prefixed by 'on'.
 The special attribute *emit* will make the node an emitted (the value of the attribute is the name of the emitted value).
-`h()` makes use of `appendNodes()` under the hood.
 
- `appendNodes(parent, nodes, insertBefore)` supports the following types as nodes to append:
+Children can be any of these types:
 
  - `Node`: DOM nodes
  - string: will be converted to text nodes
- - `Promise`: will be resolved and their result inserted in place using `appendNodes()`
- - array: will use `appendNodes()` on its items
-
-If the *parent* is a string, `document.querySelector()` will be used.
-If *insertBefore* is provided, nodes will be inserted before the provided node.
+ - `Promise`: will be resolved and their result inserted in place
+ - array: can contain any of the above. will be flattened.
 
 ## Templates
 
@@ -173,8 +169,7 @@ You can also use `data-content` to interpolate the content: `<span data-var="nam
 *vars* can also contain event listeners if the key is prefixed with 'on'. An additional selector can be provided separated by ':'.
 Eg: `{label: 'click me', 'onclick:button': e => alert('hello')}`.
 
-The template id can be a string, a node or a promise which must resolve to a node.
-Use `fetchTemplate(url, options)` (same arguments as `fetch()`) to fetch a remote HTML file as template.
+The template id can be a string, a template node or a promise which must resolve to a template node.
 
 ## Components
 
@@ -219,7 +214,7 @@ The following methods and properties are available on the context:
  - `ondisconnect(callback)`: trigger callback when the component is removed from the document
  - `querySelector()` and `querySelectorAll()` to query nodes from the component
  - `nodes`: the root nodes of the component
- - `node`: a single root node (if an array of nodes is returned, this is the last node)
+ - `node`: a single root node (or the last node if an array of nodes is returned)
 
 Components can make use of the `template()` function.
 
@@ -262,7 +257,7 @@ The function returns a promise which will resolve when the event is dispatched f
 *placeholder* can either be a node or `true` in which case the listener will be called without arguments immediatly.
 If *onceOnly* is true, it will only trigger once and then disconnect itself.
 
-The listener must return nodes compatible with `appendNodes()`. It will receive the event object as argument.
+The listener must return nodes of types supported by `h()`. If it returns undefined then the current content of the connect is kept. If false is returned, the content is emptied. It will receive the event object as argument.
 
 ```js
 h(document.body, {},
@@ -297,12 +292,13 @@ Gousse includes a small routing facility. The *RouteChanged* event is automatica
 By default, the router uses the hash part of the url. You can however activate the usage of the history api using `router.pushstate()`.
 
 The main function `router(routes)` uses `connect('RouteChanged', listeners)` to react on route changes. Thus it returns a promise.
-The *routes* argument is an object where keys are URLs and value functions which will receive the (params, state) arguments. *params* is an object containing the parameters of the query string. *state* is only relevant if pushstate is used.
+The *routes* argument is an object where keys are route paths and value functions which will receive the (params, state) arguments. *params* is an object containing the parameters of the query string. *state* is only relevant if pushstate is used.
 
-The URLs of the routes object can make use of placeholder values `{}` to match path segments. `/posts/{}` will match `/posts/post-1` but neither `/posts` or `/posts/post-1/subpost`.
-The route function will receive the value of the segment as the first argument followed by the normal params and state arguments.
+The path of the routes object can make use of placeholder values `{}` to match path segments. `/posts/{}` will match `/posts/post-1` but neither `/posts` or `/posts/post-1/subpost`.
+The route function will receive the value of the segment as the first argument followed by the normal params and state arguments. (Note: you can name the segments but this has no impact on the order of arguments, eg: `/posts/{id}`).
+Routes path can also be a regexp if it starts with `^`. Note: route paths are always trimmed of the last slash and always start with a slash.
 
-You can navigate to different URLs using `router.go(url, params, state)` where *params* and *state* are optionnal. *state* is only meaningfull in case pushstate is used. *params* can be an object which will be converted to query string.
+You can navigate to different routes using `router.go(url, params, state)` where *params* and *state* are optionnal. *state* is only meaningfull in case pushstate is used. *params* can be an object which will be converted to query string.
 
 ```js
 const hello = component(attrs => [
@@ -321,6 +317,31 @@ h(document.body, {}, router({
 ```
 
 Notice the *go* attribute on the anchor at line 3. It's a special attribute which will make anchor elements use `router.go()` instead of their normal behavior. This is also available through `data-go` for existing DOM elements.
+`router.go()` can also use parameter in segments with the same format as the routes (eg: `router.go('/posts/{id}', {id: 1})`).
+
+The router also supports wildcard routes using two forms:
+
+ - `/my-url/{*}`: will match `/my-url` and anything after. The wildcard part will be passed as argument to the route function like other placeholders.
+ - `/my-url/*`: will match the same as the former but won't pass the wildcard part as argument and won't re-render the view if only the wildcard part has changed.
+
+The second version allows you to implement nested routes:
+
+```js
+const books = component(() => {
+    return h('div', {}, [
+        h('ul', {class: 'books'}, books.map(book =>
+            h('li', {}, h('a', {go: `/books/${book.id}`}, book.title)))),
+        router('/books/{}', id => h('div', {}, getBookContent(id)))
+    ])
+});
+
+h(document.body, {}, router({
+    '/': () => h('a' {go: '/books'}, 'go to books'),
+    '/books/*': () => books()
+}));
+```
+
+Routes definition can contain a special *404* route to handle cases where none of the routes are matched.
 
 ## The App
 
@@ -329,8 +350,8 @@ By default, gousse does not do any actions on your document. For data attributes
 Alternatively, you can initilize the app from the code using the `App()` function (in this case, do not use the `app-root` class).
 It can take the following arguments:
 
- - `App(function)`: executes the function and append the returned nodes to the root node using `appendNodes()`
- - `App(nodes)`: append the nodes to the root node using `appendNodes()`
+ - `App(function)`: executes the function and append the returned nodes to the root
+ - `App(nodes)`: append the nodes to the root node
  - `App(listeners)`: register listeners using `on()`
 
 `App()` only perform the above actions once the document is loaded. It also transforms the data attributes and setup the root emitters context.

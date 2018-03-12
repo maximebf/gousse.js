@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <script src="/gousse.js"></script>
     <script>
-        const nameInput = component(function(props, children) {
+        const nameInput = component(function(attrs, children) {
             return [
                 h('input', {type: 'text', emit: 'name'}),
-                h('button', {onclick: e => this.dispatch('NameUpdated', this.name)}, props.label)
+                h('button', {onclick: e => this.dispatch('NameUpdated', this.name)}, attrs.label)
             ];
         });
 
@@ -27,6 +27,5 @@
     </script>
 </head>
 <body>
-    <a data-go="/say?name=toto">toto</a>
 </body>
 </html>

@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <script src="/gousse.js"></script>
     <script>
-        component('name-input', function(props, children) {
-            return template('name-input-tpl', Object.assign({}, props, {
+        component('name-input', function(attrs, children) {
+            return template('name-input-tpl', Object.assign({}, attrs, {
                 'onclick:button': () => this.dispatch('NameUpdated', this.name)
             }));
         });

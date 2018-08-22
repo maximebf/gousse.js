@@ -25,7 +25,7 @@ h(document.body, {},
 );
 ```
 
-See the examples folder for more examples.
+See the examples folder for more examples. [Checkout the example todo app.](https://maximebf.github.io/gousse.js/examples/todo-app.html)
 
 *("gousse de vanille" means "vanilla bean" in French)*
 

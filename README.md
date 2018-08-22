@@ -1,6 +1,6 @@
 # gousse.js
 
-A small (~700 lines of code with comments, 3.3Kb minified + gzipped) vanilla js library to build modern single page apps inspired by component based frameworks.
+A small (~700 lines of code with comments, 3.5Kb minified + gzipped) vanilla js library to build modern single page apps inspired by component based frameworks.
 It's the perfect companion to quickly build small apps or internal apps for your company.
 
 Goals of gousse.js:
@@ -78,7 +78,7 @@ This can be automatically done if the script name in the `src` attribute of the 
 
 **All the following examples assume globally available functions.**
 
-You can also use the file `gousse-all.min.js` which combines gousse.js and all the optional components.
+You can also use the file `gousse-all.min.js` which combines gousse.js and all the optional components (~9Kb).
 
 ## Events
 

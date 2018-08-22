@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <script src="/src/gousse.js?globals"></script>
+    <script src="/src/gousse-ui.js?assets"></script>
+    <script>
+        const data = [
+            'hello',
+            'world'
+        ];
+
+        ready(() => {
+            dom.append(document.querySelector('#main'),
+                ui.card({'header': 'My card', autobody: false},
+                    h('div', {'class': 'card-body'},
+                        ui.btnGroup({}, 
+                            ui.btn({label: 'My button', 'bs-tooltip': 'click me!', 'bs-open-modal': '#test-modal'}),
+                            ui.btnDropdown({label: 'Dropdown'},
+                                ui.dropdownItem({onclick: e => alert('action 1')}, 'Action 1'),
+                                ui.dropdownItem({onclick: e => {
+                                    ui.confirmDialog('Are you sure?').then(() => ui.alertDialog("let's do it!"));
+                                }}, 'Action 2')
+                            )
+                        )
+                    ),
+                    ui.listGroup({flush: true}, data.map(item => ui.listGroupItem({}, item)))
+                )
+            );
+        });
+    </script>
+</head>
+<body>
+    <bs-navbar brand="Gousse UI" class="mb-2">
+        <bs-navbar-nav class="ml-auto">
+            <bs-nav-item-link>Hello</bs-nav-item-link>
+        </bs-navbar-nav>
+    </bs-navbar>
+    <bs-container class="mb-3">
+        <bs-alert>This is a demo for Bootstrap Web Components using Gousse.js</bs-alert>
+        <bs-row>
+            <bs-col w="8" id="main"></bs-col>
+            <bs-col w="4">
+                <form>
+                    <bs-form-group-input label="Username"></bs-form-group-input>
+                    <bs-form-group-input label="Password" type="password"></bs-form-group-input>
+                    <bs-form-group-select label="Options">
+                        <option>Option 1</option>
+                        <option>Option 2</option>
+                    </bs-form-group-select>
+                    <bs-submit-btn bs-tooltip="click me!">Login</bs-submit-btn>
+                </form>
+            </bs-col>
+        </bs-row>
+    </bs-container>
+    <bs-container>
+        <bs-nav style="tabs">
+            <bs-nav-item-link active="true">Home</bs-nav-item-link>
+            <bs-nav-dropdown label="Dropdown">
+                <bs-dropdown-item>Item 1</bs-dropdown-item>
+                <bs-dropdown-item>Item 2</bs-dropdown-item>
+            </bs-nav-dropdown>
+        </bs-nav>
+        <bs-progress-bar pct="25" stripped="true" animated="true" legend="true"></bs-progress-bar>
+        <my-btn-drop label="test"></my-btn-drop>
+    </bs-container>
+    <template data-component="my-btn-drop">
+        <bs-btn-dropdown data-attr-vars="label">
+            <bs-dropdown-item>Test</bs-dropdown-item>
+        </bs-btn-dropdown>
+    </template>
+    <bs-modal id="test-modal" title="Hello" cancel-btn="Close">
+        Hello world!
+    </bs-modal>
+</body>
+</html>

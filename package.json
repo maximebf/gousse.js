@@ -1,0 +1,15 @@
+{
+    "name": "gousse",
+    "description": "Helper functions for modern javascript",
+    "author": "Maxime Bouroumeau-Fuseau <maxime.bouroumeau@gmail.com>",
+    "license": "MIT",
+    "version": "1.0.0",
+    "repository": "maximebf/gousse.js",
+    "devDependencies": {
+        "uglify-es": "^3.3.9"
+    },
+    "scripts": {
+        "minify": "uglifyjs -o dist/gousse.min.js src/gousse.js",
+        "minify-all": "uglifyjs -o dist/gousse-all.min.js src/gousse.js src/gousse-*.js"
+    }
+}

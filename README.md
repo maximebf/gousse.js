@@ -1,7 +1,7 @@
 # gousse.js
 
-A tiny (~600 lines of code, 3.3Kb minified + gzipped) vanilla js library to build modern single page apps inspired by React+Redux.
-It's the perfect companion to quickly build small apps.
+A small (~700 lines of code with comments, 3.3Kb minified + gzipped) vanilla js library to build modern single page apps inspired by component based frameworks.
+It's the perfect companion to quickly build small apps or internal apps for your company.
 
 Goals of gousse.js:
 
@@ -25,7 +25,6 @@ h(document.body, {},
 );
 ```
 
-You can find a fully fonctionnal app here: <https://github.com/maximebf/notes-app>.  
 See the examples folder for more examples.
 
 *("gousse de vanille" means "vanilla bean" in French)*
@@ -40,9 +39,14 @@ Gousse provides the following functions:
  - `template()` to instantiate template elements
  - `component()` to create re-usable components
  - `connect()` to bind elements to events
- - `router()` and `router.go()` to react to changes of the URL and change the URL
 
-It also provides some behaviors via data attributes (which will apply the above functions).
+And additionnaly via additional scripts:
+
+ - UI components using Bootstrap
+ - `router()` and `router.go()` to react to changes of the URL and change the URL
+ - `store()` to make it easy to store data locally
+
+It also provides some behaviors via data attributes (which will use the above functions).
 
 While these functions can be used as simple helpers, they have been designed to work hand in hand to make it easy to create reactive apps. Gousse has been designed with these concepts in mind:
 
@@ -51,8 +55,30 @@ While these functions can be used as simple helpers, they have been designed to 
  - components emit events which will bubble up to the top
  - other components / the app can react to these events and re-render themselves
 
-Note: none of the examples use a module loader but gousse respects the UMD convention.
-However, if loaded directly via `<script>` it will add the exports to the global scope.
+## Importing the script
+
+Gousse respects the UMD convention and the name of the module or global export is `gousse`.
+
+```html
+<script src="gousse.min.js"></script>
+<script>
+    const myComponent = gousse.component(/* ... */);
+</script>
+```
+
+In the browser, you can also import Gousse functions on the global scope using `gousse.importGlobals()`.
+This can be automatically done if the script name in the `src` attribute of the `<script>` tag ends with `?globals`.
+
+```html
+<script src="gousse.min.js?globals"></script>
+<script>
+    const myComponent = component(/* ... */);
+</script>
+```
+
+**All the following examples assume globally available functions.**
+
+You can also use the file `gousse-all.min.js` which combines gousse.js and all the optional components.
 
 ## Events
 
@@ -140,7 +166,7 @@ document.body.appendChild(form);
 `h()` can also receive a `Node` as first argument. In this case, the node content will be replaced with the new children.
 
 *attributes* is an object. Events are supported if prefixed by 'on'.
-The special attribute *emit* will make the node an emitted (the value of the attribute is the name of the emitted value).
+Attribute annotations (the *data-* attributes) can be used and do not require the *data-* prefix.
 
 Children can be any of these types:
 
@@ -246,6 +272,33 @@ Finally, you can also create components directly from templates using the `data-
 </body>
 ```
 
+## Understanding components shadow mode
+
+It is important to understand how elements inside a custom elemnt behave. It will greatly impact the way you develop with components.
+
+There are 3 shadow modes:
+
+ - `true`: uses attachShadow(). This means the component has its own shadow document. CSS styles are not shared from the main document!
+    In this mode, it is recommended to use templates.
+ - `false`: no shadow document but custom element tag stays. This means that the content of your custom element will be nested inside the custom element tag.
+    CSS styles are shared with the main document.
+ - `"replace"`: a special Gousse mode which replaces the custom element with the returned content from the render function. This means that no custom element tag is left after the rendering process.
+
+The default mode in Gousse is `false` because it is easier to transitionned from traditional web development.
+The shadow mode can be modified using a query parameter in the filename:
+
+```html
+<script src="gousse.js?shadow">
+<script src="gousse.js?shadow=replace">
+```
+
+Or in javascript:
+
+```js
+gousse.component.customElementsShadowMode = true;
+gousse.component.customElementsShadowMode = 'replace';
+```
+
 ## Connecting events and components
 
 To facilitate reacting to global events, you can use the `connect()` function.
@@ -286,10 +339,84 @@ h(document.body, {},
 )
 ```
 
-## Routing
+## The App
 
-Gousse includes a small routing facility. The *RouteChanged* event is automatically dispatched everytime the url changes.
-By default, the router uses the hash part of the url. You can however activate the usage of the history api using `router.pushstate()`.
+By default, gousse does not do any actions on your document. For data attributes to be processed, you will need to add the `app-root` class to the containing element (ie. the body in most use cases).
+
+Alternatively, you can initilize the app from the code using the `App()` function (in this case, do not use the `app-root` class).
+It can take the following arguments:
+
+ - `App(function)`: executes the function and append the returned nodes to the root
+ - `App(nodes)`: append the nodes to the root node
+ - `App(listeners)`: register listeners using `on()`
+
+`App()` only performs the above actions once the document is loaded. It also transforms the data attributes and setup the root emitters context.
+It will dispatch an `AppReady` event when it has performed all the above.
+
+Optionnaly, the app can be scoped to an element by passing a root node as first argument.
+
+Example:
+
+```js
+App({
+    AppReady: e => {
+        let name = localStorage.getItem('name');
+        if (name) {
+            dispatch('NameUpdated', name);
+        }
+    },
+    NameUpdated: e => {
+        localStorage.setItem('name', e.detail);
+    },
+    NameCleared: e => {
+        localStorage.removeITem('name');
+    }
+})
+```
+
+## UI components using gousse-ui.js
+
+Gousse UI contains components based on [Bootstrap](http://getbootstrap.com/) and [Font-Awesome](https://fontawesome.com/) to quickly create apps.
+Gousse UI requires assets from its dependencies to be included in the page. This can be done automatically by using `?assets` in the query string of gousse.js or gousse-ui.js.
+
+```html
+<script src="/gousse-ui.js?globals&assets"></script>
+```
+
+If Custom Elements are supported by your browser, components will be available as custom elements. Checkout the gousse-ui.js file to access the list of components.
+
+Example HTML taken from the file *examples/ui.html*:
+
+```html
+<bs-navbar brand="Gousse UI" class="mb-2">
+    <bs-navbar-nav class="ml-auto">
+        <bs-nav-item-link>Hello</bs-nav-item-link>
+    </bs-navbar-nav>
+</bs-navbar>
+<bs-container class="mb-3">
+    <bs-alert>This is a demo for Bootstrap Web Components using Gousse.js</bs-alert>
+    <bs-row>
+        <bs-col w="8" id="main"></bs-col>
+        <bs-col w="4">
+            <form>
+                <bs-form-group-input label="Username"></bs-form-group-input>
+                <bs-form-group-input label="Password" type="password"></bs-form-group-input>
+                <bs-form-group-select label="Options">
+                    <option>Option 1</option>
+                    <option>Option 2</option>
+                </bs-form-group-select>
+                <bs-submit-btn bs-tooltip="click me!">Login</bs-submit-btn>
+            </form>
+        </bs-col>
+    </bs-row>
+</bs-container>
+```
+
+## Routing using gousse-router.js
+
+Include *gousse-router.js* to use the router or use *gousse-all.js* to get all at once.
+
+The *RouteChanged* event is automatically dispatched everytime the url changes. By default, the router uses the hash part of the url. You can however activate the usage of the history api using `router.pushstate()`.
 
 The main function `router(routes)` uses `connect('RouteChanged', listeners)` to react on route changes.
 The *routes* argument is an object where keys are route paths and value functions which will receive the (params, state) arguments. *params* is an object containing the parameters of the query string. *state* is only relevant if pushstate is used.
@@ -343,37 +470,40 @@ h(document.body, {}, router({
 
 Routes definition can contain a special *404* route to handle cases where none of the routes are matched.
 
-## The App
+## Stores using gousse-store.js
 
-By default, gousse does not do any actions on your document. For data attributes to be processed, you will need to add the `app-root` class to the containing element (ie. the body in most use cases).
+Stores are array of objects that you can observe and optionnaly persist in localStorage as JSON.
 
-Alternatively, you can initilize the app from the code using the `App()` function (in this case, do not use the `app-root` class).
-It can take the following arguments:
+```js
+const tasks = store([], 'tasks'); // persists the array under the key "tasks" in localStorage
+tasks.observe(() => console.log('the store has been modified'));
+tasks.push({title: 'task 1'});
+tasks.push({title: 'task 2'});
+```
 
- - `App(function)`: executes the function and append the returned nodes to the root
- - `App(nodes)`: append the nodes to the root node
- - `App(listeners)`: register listeners using `on()`
+## Adding new attribute annotations
 
-`App()` only perform the above actions once the document is loaded. It also transforms the data attributes and setup the root emitters context.
-It will dispatch an `AppReady` event when it has performed all the above.
+Elements can use data attributes to be annotated and processed. You have seen example of it when you have used `data-emit` or `data-dispatch`.
 
-Optionnaly, the app can be scoped to an element by passing a root node as first argument.
+You can define your own annotations by adding entries to the `attributeAnnotations` object. Keys are the name of the data attribute and values are a function taking the following arguments:
+
+ - `node`: the impacted node
+ - `value`: value of the attribute
+ - `rootNode`: a rootNode as provided to the transform function
+ - `evalThisArg`: the value of `this` to use in eval contexts
 
 Example:
 
 ```js
-App({
-    AppReady: e => {
-        let name = localStorage.getItem('name');
-        if (name) {
-            dispatch('NameUpdated', name);
-        }
-    },
-    NameUpdated: e => {
-        localStorage.setItem('name', e.detail);
-    },
-    NameCleared: e => {
-        localStorage.removeITem('name');
-    }
-})
+attributeAnnotations.tooltip = (node, value, rootNode, evalThisArg) => {
+    on(node, 'mouseover', e => {
+        // ...
+    });
+};
+```
+
+Then use as follow:
+
+```html
+<a href="..." data-tooltip="click me for more info">...</a>
 ```

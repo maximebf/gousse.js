@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <script src="/src/gousse.js?globals"></script>
+    <script src="/src/gousse-ui.js?assets"></script>
+    <script src="/src/gousse-store.js"></script>
+    <script>
+        const TODOS = store([
+            {title: 'task 1', checked: true},
+            {title: 'task 2', checked: false}
+        ], 'todos'); // persist in localStorage
+
+        component('add-todo-item', function(attrs) {
+            return template('add-todo-item', Object.assign({}, attrs, {
+                'onsubmit:form': e => {
+                    e.preventDefault();
+                    let input = this.querySelector('input[type="text"]');
+                    this.dispatch('TodoAdded', input.value);
+                    input.value = '';
+                }
+            }));
+        });
+
+        component('todo-item', function(attrs) {
+            return template('todo-item', Object.assign({}, attrs, {
+                'onclick:bs-btn': () => ui.confirmDialog('Are you sure?').then(() => this.dispatch('TodoRemoved', attrs.idx)),
+                'onchange:input[type="checkbox"]': e => this.dispatch('TodoToggled', {idx: attrs.idx, checked: e.target.checked}),
+                'onkeyup:bs-form-input': debounce(e => this.dispatch('TodoUpdated', {idx: attrs.idx, title: e.target.value}), 500)
+            }));
+        });
+
+        App({
+            TodoAdded: e => {
+                TODOS.push({title: e.detail, checked: false});
+            },
+            TodoToggled: e => {
+                TODOS[e.detail.idx].checked = e.detail.checked;
+            },
+            TodoUpdated: e => {
+                TODOS[e.detail.idx].title = e.detail.title;
+            },
+            TodoRemoved: e => {
+                TODOS.splice(e.detail, 1);
+            },
+            AppReady: () => {
+                TODOS.observe(() => {
+                    h(dom.query('#todos'), {}, TODOS.map((todo, idx) =>
+                        h('todo-item', {title: todo.title, checked: todo.checked, idx})));
+                });
+            }
+        });
+    </script>
+</head>
+<body>
+    <bs-navbar brand="TODO" class="mb-2">
+    </bs-navbar>
+    <bs-container class="mb-3">
+        <bs-card header="Todos" autobody="false">
+            <bs-list-group id="todos" flush="true"></bs-list-group>
+        </bs-card>
+        <add-todo-item></add-todo-item>
+    </bs-container>
+    <template id="todo-item">
+        <bs-list-group-item justify="true" data-attr-vars="idx:data-todo-idx">
+            <input type="checkbox" class="mr-2" data-attr-vars="checked">
+            <bs-form-input data-attr-vars="title:value"></bs-form-input>
+            <bs-btn color="danger" class="ml-2"><fa-icon i="trash"></fa-icon></bs-btn>
+        </bs-list-group-item>
+    </template>
+    <template id="add-todo-item">
+        <form class="form-inline d-flex mt-4">
+            <bs-form-input placeholder="Add new todo" class="flex-fill mr-2"></bs-form-input>
+            <bs-submit-btn><fa-icon i="plus"></fa-icon> Add</bs-submit-btn>
+        </form>
+    </template>
+</body>
+</html>

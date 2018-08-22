@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <script src="/gousse.js"></script>
+    <script src="/src/gousse.js?globals"></script>
+    <script src="/src/gousse-router.js"></script>
     <script>
         const nameInput = component(function(attrs, children) {
             return [
@@ -13,7 +14,7 @@
 
         App({
             AppReady: () => {
-                appendNodes(document.body, router({
+                dom.append(document.body, router({
                     '/': () => nameInput({label: 'Say hello!'}),
                     '/say': params => [
                         h('h1', {}, `Hello ${params.name}`),

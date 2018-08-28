@@ -17,16 +17,16 @@
                 if (node.getAttribute('src').match(/gousse(-all)?(\.min)?\.js\?/)) {
                     let qs = node.getAttribute('src').split('?')[1].split('&');
                     if (qs.indexOf('globals') !== -1) {
-                        gousse.importGlobals();
+                        root.gousse.importGlobals();
                     }
                     if (qs.indexOf('shadow=replace') !== -1) {
-                        gousse.component.customElementsShadowMode = 'replace';
+                        root.gousse.component.customElementsShadowMode = 'replace';
                     }
                     if (qs.indexOf('shadow=false') !== -1) {
-                        gousse.component.customElementsShadowMode = false;
+                        root.gousse.component.customElementsShadowMode = false;
                     }
                     if (qs.indexOf('shadow=true') !== -1 || qs.indexOf('shadow') !== -1) {
-                        gousse.component.customElementsShadowMode = true;
+                        root.gousse.component.customElementsShadowMode = true;
                     }
                 }
             });

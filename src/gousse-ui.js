@@ -3,22 +3,22 @@
  * MIT License - (c) Maxime Bouroumeau-Fuseau 2018
  */
 
-(function (factory) {
-    if (typeof window.gousse === 'undefined') {
+(function (root, factory) {
+    if (typeof root.gousse === 'undefined') {
         console.error('Cannot import Gousse UI because Gousse is missing');
         return;
     }
-    factory(window.gousse);
-    window.gousse.importGlobals(true);
+    factory(root.gousse);
+    root.gousse.importGlobals(true);
     document.head.querySelectorAll('script').forEach(node => {
         if (node.getAttribute('src').match(/gousse-(ui|all)(\.min)?\.js\?/)) {
             let qs = node.getAttribute('src').split('?')[1].split('&');
             if (qs.indexOf('assets') !== -1) {
-                gousse.ready.promises.push(gousse.ui.loadAssets());
+                root.gousse.ready.promises.push(gousse.ui.loadAssets());
             }
         }
     });
-})(gousse => {
+})(this, gousse => {
 
 let ui = gousse.ui = {};
 

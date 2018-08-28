@@ -3,14 +3,14 @@
  * MIT License - (c) Maxime Bouroumeau-Fuseau 2018
  */
 
-(function (factory) {
-    if (typeof window.gousse === 'undefined') {
+(function (root, factory) {
+    if (typeof root.gousse === 'undefined') {
         console.error('Cannot import Gousse Store because Gousse is missing');
         return;
     }
-    factory(window.gousse);
-    window.gousse.importGlobals(true);
-})(gousse => {
+    factory(root.gousse);
+    root.gousse.importGlobals(true);
+})(this, gousse => {
 
 /**
  * Observe an Array or an Object and get notified every times it is modified (using Proxy)

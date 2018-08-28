@@ -7,7 +7,7 @@ Goals of gousse.js:
 
  - A set of helper functions to create components and manage an event lifecycle
  - Can be read, understood and modified by anyone
- - Fully written in ES6 with features supported by Chrome, Firefox, Edge and Safari (no need for Babel)
+ - Fully written in ES6 with features supported by Chrome, Firefox, Edge and Safari (no IE, no need for Babel)
  - Make use of custom elements if supported
  - No dependencies, no build chain, use directly from CDN.
 
@@ -45,6 +45,7 @@ And additionnaly via additional scripts:
  - UI components using Bootstrap
  - `router()` and `router.go()` to react to changes of the URL and change the URL
  - `store()` to make it easy to store data locally
+ - `worker()` and `cache()` for background tasks and offline usage
 
 It also provides some behaviors via data attributes (which will use the above functions).
 
@@ -78,7 +79,7 @@ This can be automatically done if the script name in the `src` attribute of the 
 
 **All the following examples assume globally available functions.**
 
-You can also use the file `gousse-all.min.js` which combines gousse.js and all the optional components (~9Kb).
+You can also use the file `gousse-all.min.js` which combines gousse.js and all the optional components (~10Kb).
 
 ## Events
 
@@ -86,7 +87,7 @@ Gousse introduces some functions to help you manage an event lifecycle.
 We call global events, events which are dispatched on document.body.
 
 `dispatch(eventName, data, node)` is used to dispatch events. If `node` is omitted, the event is dispatched from the body.
-Events are dispatched using `CustomEvent` which means the data is available under the `detail` property.
+Events are dispatched using [`CustomEvent`](https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent) which means the data is available under the `detail` property.
 
 `on()` is used to listen to events. It takes many forms:
 
@@ -177,7 +178,7 @@ Children can be any of these types:
 
 ## Templates
 
-Gousse allows you to create elements from `<template>` elements using the `template(id, vars, ...children)` function. It returns a promise that resolves to a DocumentFragment ready to be inserted in the document.
+Gousse allows you to create elements from [HTML templates](https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_templates_and_slots) using the `template(id, vars, ...children)` function. It returns a promise that resolves to a DocumentFragment ready to be inserted in the document.
 
 The *vars* argument is an object where values can be injected in the template using `data-var`.
 You can also use `data-content` to interpolate the content: `<span data-var="name" data-content="Hello ${value}"></span>`.
@@ -244,7 +245,7 @@ The following methods and properties are available on the context:
 
 Components can make use of the `template()` function.
 
-If the browser supports custom elements:
+If the browser supports [custom elements](https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements):
 
 ```html
 <script>
@@ -278,7 +279,7 @@ It is important to understand how elements inside a custom elemnt behave. It wil
 
 There are 3 shadow modes:
 
- - `true`: uses attachShadow(). This means the component has its own shadow document. CSS styles are not shared from the main document!
+ - `true`: uses [attachShadow()](https://developer.mozilla.org/en-US/docs/Web/API/Element/attachShadow). This means the component has its own shadow document. CSS styles are not shared from the main document!
     In this mode, it is recommended to use templates.
  - `false`: no shadow document but custom element tag stays. This means that the content of your custom element will be nested inside the custom element tag.
     CSS styles are shared with the main document.
@@ -414,9 +415,7 @@ Example HTML taken from the file *examples/ui.html*:
 
 ## Routing using gousse-router.js
 
-Include *gousse-router.js* to use the router or use *gousse-all.js* to get all at once.
-
-The *RouteChanged* event is automatically dispatched everytime the url changes. By default, the router uses the hash part of the url. You can however activate the usage of the history api using `router.pushstate()`.
+The *RouteChanged* event is automatically dispatched everytime the url changes. By default, the router uses the hash part of the url. You can however activate the usage of the [history api](https://developer.mozilla.org/en-US/docs/Web/API/History_API) using `router.pushstate()`.
 
 The main function `router(routes)` uses `connect('RouteChanged', listeners)` to react on route changes.
 The *routes* argument is an object where keys are route paths and value functions which will receive the (params, state) arguments. *params* is an object containing the parameters of the query string. *state* is only relevant if pushstate is used.
@@ -472,7 +471,7 @@ Routes definition can contain a special *404* route to handle cases where none o
 
 ## Stores using gousse-store.js
 
-Stores are array of objects that you can observe and optionnaly persist in localStorage as JSON.
+Stores are array of objects that you can observe and optionnaly persist in [localStorage](https://developer.mozilla.org/en-US/docs/Web/API/Storage/LocalStorage) as JSON. It makes use of the [Proxy](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy) object.
 
 ```js
 const tasks = store([], 'tasks'); // persists the array under the key "tasks" in localStorage
@@ -480,6 +479,98 @@ tasks.observe(() => console.log('the store has been modified'));
 tasks.push({title: 'task 1'});
 tasks.push({title: 'task 2'});
 ```
+
+Note: the `observe()` method returns a function that can be called to remove this observer.
+
+Under the hood, `store()` uses the `gousse.observe()` function with `deep=true`. This means that arrays and objects contained in properties of the main store array will also be observed.
+
+## Workers, notifications and offline cache using gousse-worker.js
+
+### Background tasks with worker()
+
+The `worker()` function allows you to easily run background tasks using [Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers). No need to use separate files for your workers as Gousse will take care automatically to serialize and transmit your function to the worker thread.
+
+The `worker()` function returns a function that can be executed like your provided function (arguments are passed on) but it will return a Promise that resolves with the function return value.
+
+```js
+const fetchInWorker = worker(function(url) {
+    console.log('fetching from worker');
+    return fetch(url);
+});
+
+fetchInWorker('bigdata.json').then(r => {
+    // ...
+});
+```
+
+Workers can also send messages to the browser tab using `gousse.worker.send(data)`. You can listen to these messages in the main thread:
+
+```js
+const fetchInWorker = worker(function(url) {
+    gousse.worker.send('download started');
+    let p = fetch(url);
+    p.then(() => gousse.worker.send('download finished'));
+    return p;
+});
+
+fetchInWorker.onmessage(msg => console.log(msg));
+
+fetchInWorker('bigdata.json').then(r => {
+    // ...
+});
+```
+
+You can also execute the function without expeciting a return value.
+
+```js
+const counter = worker(function() {
+    let i = 0;
+    setInterval(() => gousse.worker.send(i++), 1000);
+});
+counter.onmessage(i => console.log(i));
+counter.start();
+```
+
+Note: worker functions can return Promises
+
+### Notifications
+
+You can display [browser notification](https://developer.mozilla.org/en-US/docs/Web/API/Notifications_API) from the main thread or from worker threads using `notify()`. Arguments are the same as `Notification` constructor. This function ensures that the permission is requested first. In the case of worker, you will need to request the permission from the main thread first.
+
+To request permission on page load, add the "notifications" parameter to the script url or use `gousse.requestNotificationPermission()`.
+
+```html
+<script src="/gousse-worker.js?notifications"></script>
+```
+
+### Offline cache
+
+**IMPORTANT**: for offline cache to work, the gousse script needs to be located at the root of your public directory or be served with the header `Service-Worker-Allowed: /`.
+
+Gousse can cache your asset files using a [Service Worker](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API) for offline access. Activate caching for all included assets via script and rel tags using the *cache* parameter in the script url.
+
+```html
+<script src="/gousse-worker.js?cache"></script>
+```
+
+The caching strategy is pretty simple:
+
+ - If online, always fetch the file
+ - If offline, serve the file from cache if cached or attempt to fetch
+ - If online and requesting a cached file, fetch the file and update the cached version
+
+This means the cache should always be up to date with the latest version of your assets since the last online connection.
+
+You can add files to the cache at any moment using `cache(assets)`:
+
+```js
+cache([
+    '/my-file.js',
+    '/data.json'
+]);
+```
+
+You can also provide a version number or cache name to invalidate any previous cache. Either as a parameter `gousse-worker.js?cache=v2` or as the second parameter to the `cache()` function. The default name is *v1*.
 
 ## Adding new attribute annotations
 

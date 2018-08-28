@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <script src="../src/gousse.js?globals"></script>
+    <script src="../src/gousse-worker.js?notifications"></script>
+    <script>
+        const fetchJSONFromWorker = worker(function(url) {
+            console.log('fetching from worker');
+            gousse.notify('starting fetch');
+            return fetch(url).then(r => r.json());
+        });
+
+        fetchJSONFromWorker('../examples/data.json').then(data => {
+            console.log(data);
+        });
+
+        const intervalWorker = worker(function() {
+            let count = 0;
+            setInterval(function() {
+                gousse.worker.send(count++);
+            }, 1000);
+        });
+        intervalWorker.onmessage(data => console.log(data));
+        intervalWorker.start();
+
+        const taskWhichTimeouts = worker(function() {
+            return new Promise((resolve, reject) => {
+                setTimeout(() => resolve(), 5000);
+            });
+        }, {timeout: 1000});
+
+        taskWhichTimeouts()
+            .then(() => console.log('no timeout'))
+            .catch(() => console.error('timeout!!!!'));
+    </script>
+</head>
+<body>
+</body>
+</html>

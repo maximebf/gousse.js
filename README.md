@@ -6,7 +6,7 @@ It's the perfect companion to quickly build small apps or internal apps for your
 Goals of gousse.js:
 
  - A set of helper functions to create components and manage an event lifecycle
- - Can be read, understood and modified by anyone
+ - East to use and can be read, understood and modified by anyone
  - Fully written in ES6 with features supported by Chrome, Firefox, Edge and Safari (no IE, no need for Babel)
  - Make use of custom elements if supported
  - No dependencies, no build chain, use directly from CDN.
@@ -57,6 +57,10 @@ While these functions can be used as simple helpers, they have been designed to 
  - other components / the app can react to these events and re-render themselves
 
 ## Importing the script
+
+Use from the [RawGit](https://rawgit.com/) CDN (gousse-all.min.js):
+
+> <https://cdn.rawgit.com/maximebf/gousse.js/46c1561b/dist/gousse-all.min.js>
 
 Gousse respects the UMD convention and the name of the module or global export is `gousse`.
 

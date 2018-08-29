@@ -60,7 +60,7 @@ While these functions can be used as simple helpers, they have been designed to 
 
 Use from the [RawGit](https://rawgit.com/) CDN (gousse-all.min.js):
 
-> <https://cdn.rawgit.com/maximebf/gousse.js/46c1561b/dist/gousse-all.min.js>
+> <https://cdn.rawgit.com/maximebf/gousse.js/b1d555ea/dist/gousse-all.min.js>
 
 Gousse respects the UMD convention and the name of the module or global export is `gousse`.
 

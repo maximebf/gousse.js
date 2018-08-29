@@ -12,24 +12,36 @@
     root.gousse.importGlobals(true);
     document.head.querySelectorAll('script').forEach(node => {
         if (node.getAttribute('src').match(/gousse-(ui|all)(\.min)?\.js\?/)) {
-            let qs = node.getAttribute('src').split('?')[1].split('&');
-            if (qs.indexOf('assets') !== -1) {
-                root.gousse.ready.promises.push(gousse.ui.loadAssets());
-            }
+            node.getAttribute('src').split('?')[1].split('&').forEach(param => {
+                if (param.startsWith('assets')) {
+                    const packages = param.indexOf('=') !== -1 ? param.split('=')[1].split(',') : ['base'];
+                    root.gousse.ready.promises.push(Promise.all(packages.map(package => root.gousse.ui.loadAssets(package))));
+                }
+            });
         }
     });
 })(this, gousse => {
 
 let ui = gousse.ui = {};
 
-/** Needed assets for UI components */
-ui.assets = [
-    'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css#integrity=sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO',
-    'https://code.jquery.com/jquery-3.3.1.slim.min.js#integrity=sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo',
-    'https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js#integrity=sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49',
-    'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js#integrity=sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy',
-    'https://use.fontawesome.com/releases/v5.2.0/css/all.css#integrity=sha384-hWVjflwFxL6sNzntih27bfxkr27PmbbK/iSvJ+a4+0owXq79v+lsFkW54bOGbiDQ'
-];
+/** Assets for UI components */
+ui.assets = {
+    base: [
+        'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css#integrity=sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO',
+        'https://code.jquery.com/jquery-3.3.1.slim.min.js#integrity=sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo',
+        'https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js#integrity=sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49',
+        'https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js#integrity=sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy',
+        'https://use.fontawesome.com/releases/v5.2.0/css/all.css#integrity=sha384-hWVjflwFxL6sNzntih27bfxkr27PmbbK/iSvJ+a4+0owXq79v+lsFkW54bOGbiDQ'
+    ],
+    summernote: [
+        'http://cdnjs.cloudflare.com/ajax/libs/summernote/0.8.9/summernote-bs4.css',
+        'http://cdnjs.cloudflare.com/ajax/libs/summernote/0.8.9/summernote-bs4.js'
+    ],
+    simplemde: [
+        'https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css',
+        'https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js'
+    ]
+};
 
 
 /*****************************************************************************************************
@@ -358,16 +370,70 @@ ui.iconLi = component('fa-icon-li', (attrs, children) =>
 );
 
 
+/*****************************************************************************************************
+ * Summernote editor component (WYSIWYG editor)
+ */
+
+ui.summernoteEditor = component('summernote-editor', function(attrs, children) {
+    return ui.loadAssets('summernote').then(() => {
+        this.onconnect(() => {
+            $(this.node).summernote(attrs);
+        });
+        return h('textarea', mergeattrs(attrs, {}, {}, ['id', 'name', 'class']));
+    });
+});
+
+ui.formGroupSummernoteEditor = component('bs-form-group-summernote-editor', (attrs, children) =>
+    ui.formGroup(mergeattrs(attrs, {}, {}, ['label', 'for', 'help']),
+        ui.summernoteEditor(mergeattrs(attrs, {}, {help: null, for: null, label: null}), children))
+);
+
+
+/*****************************************************************************************************
+ * SimpleMDE editor component (Markdown editor)
+ */
+
+ui.simplemdeEditor = component('simplemde-editor', function(attrs, children) {
+    return ui.loadAssets('simplemde').then(() => {
+        this.onconnect(() => {
+            const editor = new SimpleMDE(Object.assign({element: this.node}, attrs));
+        });
+        return h('textarea', mergeattrs(attrs, {}, {}, ['id', 'name', 'class']));
+    });
+});
+
+ui.formGroupSimplemdeEditor = component('bs-form-group-simplemde-editor', (attrs, children) =>
+    ui.formGroup(mergeattrs(attrs, {}, {}, ['label', 'for', 'help']),
+        ui.simplemdeEditor(mergeattrs(attrs, {}, {help: null, for: null, label: null}), children))
+);
+
+
 /*****************************************************************************************************/
 
+
+ui.loadedAssetPackages = [];
 
 /**
  * Load external CSS & JS assets and returns a Promise which resolves once all files have been loaded
  */
-ui.loadAssets = (assets) => {
+ui.loadAssets = (assets, packageName) => {
+    if (typeof assets === 'string' && packageName === undefined) {
+        // load package by name
+        if (!(assets in ui.assets)) {
+            throw new Error(`Asset package ${assets} does not exist`);
+        }
+        [assets, packageName] = [ui.assets[assets], assets];
+    }
+    if (packageName && ui.loadedAssetPackages.indexOf(packageName) !== -1) {
+        return Promise.resolve();
+    } else if (packageName) {
+        // immeditaly add the package name to the list so that if called twice
+        // before end of loading it is not included twice
+        ui.loadedAssetPackages.push(packageName);
+    }
     // load css files asynchronously and js files synchronously (to preserve dependencies)
     let cssPromises = [], jsPromiseChain;
-    (assets || ui.assets).forEach(url => {
+    let urls = assets.map(url => {
         let hash = null, el;;
         if (url.indexOf('#integrity=') !== -1) {
             [url, hash] = url.split('#integrity=');
@@ -387,8 +453,11 @@ ui.loadAssets = (assets) => {
         } else {
             jsPromiseChain = jsPromiseChain ? jsPromiseChain.then(load) : load();
         }
+        return url;
     });
-    return Promise.all([Promise.all(cssPromises), Promise.resolve(jsPromiseChain)]);
+    return Promise.all([Promise.all(cssPromises), Promise.resolve(jsPromiseChain)]).then(() => {
+        gousse.dispatch('GousseAssetsLoaded', urls);
+    });
 };
 
 /**
@@ -396,8 +465,8 @@ ui.loadAssets = (assets) => {
  * This ensures clean HTML and better compatibility with existing CSS frameworks
  */
 function component(name, renderer) {
-    const func = (attrs, ...args) => {
-        return renderer(mergeattrs(attrs, {'class': name}), ...args);
+    const func = function(attrs, ...args) {
+        return renderer.call(this, mergeattrs(attrs, {'class': name}), ...args);
     };
     if (gousse.component.customElementsAvailable) {
         return gousse.component(name, func, 'replace');

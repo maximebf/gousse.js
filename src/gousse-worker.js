@@ -156,13 +156,15 @@ worker.Runner = WorkerRunner;
  */
 function cache(assets, name) {
     cache.register(name).then(() => {
-        navigator.serviceWorker.controller.postMessage({command: 'cache', assets, name: name || cache.name});
+        navigator.serviceWorker.controller.postMessage({command: 'cache', assets, name: name || cache.cacheName});
     });
 }
 
+cache.cacheName = 'v1';
+
 cache.register = function(name) {
+    cache.cacheName = name || cache.cacheName;
     if (typeof cache.registration === 'undefined') {
-        cache.name = name || 'v1';
         cache.registration = navigator.serviceWorker.register(scriptURL);
     }
     return cache.registration;

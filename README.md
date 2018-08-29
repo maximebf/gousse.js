@@ -42,7 +42,7 @@ Gousse provides the following functions:
 
 And additionnaly via additional scripts:
 
- - UI components using Bootstrap
+ - UI components using external dependencies (Bootstrap, Font-Awesome, Summernote, SimpleMDE)
  - `router()` and `router.go()` to react to changes of the URL and change the URL
  - `store()` to make it easy to store data locally
  - `worker()` and `cache()` for background tasks and offline usage
@@ -249,6 +249,17 @@ The following methods and properties are available on the context:
 
 Components can make use of the `template()` function.
 
+Example using a jQuery plugin:
+
+```js
+const jqueryPluginComponent = component(function(attrs) {
+    this.onconnect(() => {
+        $(this.node).myJqueryPlugin(attrs);
+    });
+    return h('div', {});
+});
+```
+
 If the browser supports [custom elements](https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements):
 
 ```html
@@ -303,6 +314,8 @@ Or in javascript:
 gousse.component.customElementsShadowMode = true;
 gousse.component.customElementsShadowMode = 'replace';
 ```
+
+It can also be defined on a per-component basis as the third argument to `component()`.
 
 ## Connecting events and components
 
@@ -381,14 +394,25 @@ App({
 
 ## UI components using gousse-ui.js
 
-Gousse UI contains components based on [Bootstrap](http://getbootstrap.com/) and [Font-Awesome](https://fontawesome.com/) to quickly create apps.
+Gousse UI contains components based on [Bootstrap](http://getbootstrap.com/) and [Font-Awesome](https://fontawesome.com/) to quickly create apps. It also includes a component for the [Summernote WYSIWYG editor](https://summernote.org) and one for the [SimpleMDE markdown editor](https://github.com/sparksuite/simplemde-markdown-editor).
+
 Gousse UI requires assets from its dependencies to be included in the page. This can be done automatically by using `?assets` in the query string of gousse.js or gousse-ui.js.
 
 ```html
 <script src="/gousse-ui.js?globals&assets"></script>
 ```
 
-If Custom Elements are supported by your browser, components will be available as custom elements. Checkout the gousse-ui.js file to access the list of components.
+Checkout the gousse-ui.js file for the list of components. There are components for most of Boostrap components and some components to add Font Awesome icons.
+
+```js
+h(document.body, {},
+    ui.card({header: 'My Panel'},
+        ui.btn({onclick: () => ui.alertDialog('hello world!')}, ui.icon({i: 'magic'}), 'Click Me!')
+    )
+);
+```
+
+If Custom Elements are supported by your browser, components will be available as custom elements.
 
 Example HTML taken from the file *examples/ui.html*:
 
@@ -415,6 +439,19 @@ Example HTML taken from the file *examples/ui.html*:
         </bs-col>
     </bs-row>
 </bs-container>
+```
+
+Gousse UI includes an asset loader. You can declare asset packages (urls of css and js files) in the `ui.assets` object and then using `ui.loadAssets()`:
+
+```js
+ui.assets.myAssetPackage = [
+    'main.js',
+    'style.css'
+];
+
+ui.loadAssets('myAssetPackage').then(() => {
+    console.log('assets loaded!');
+});
 ```
 
 ## Routing using gousse-router.js
@@ -492,7 +529,7 @@ Under the hood, `store()` uses the `gousse.observe()` function with `deep=true`.
 
 ### Background tasks with worker()
 
-The `worker()` function allows you to easily run background tasks using [Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers). No need to use separate files for your workers as Gousse will take care automatically to serialize and transmit your function to the worker thread.
+The `worker()` function allows you to easily run background tasks using [Web Workers](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers). No need to use separate files for your workers as Gousse will take automatically care of serializing and transmiting your function to the worker thread. Functions used with `worker()` cannot be closures and their arguments must be JSON-serializable objects.
 
 The `worker()` function returns a function that can be executed like your provided function (arguments are passed on) but it will return a Promise that resolves with the function return value.
 
@@ -507,7 +544,7 @@ fetchInWorker('bigdata.json').then(r => {
 });
 ```
 
-Workers can also send messages to the browser tab using `gousse.worker.send(data)`. You can listen to these messages in the main thread:
+Workers can also send messages to the browser tab using `gousse.worker.send(data)` (The `gousse` object must be used, no global imports in workers). You can listen to these messages in the main thread:
 
 ```js
 const fetchInWorker = worker(function(url) {
@@ -539,19 +576,38 @@ Note: worker functions can return Promises
 
 ### Notifications
 
-You can display [browser notification](https://developer.mozilla.org/en-US/docs/Web/API/Notifications_API) from the main thread or from worker threads using `notify()`. Arguments are the same as `Notification` constructor. This function ensures that the permission is requested first. In the case of worker, you will need to request the permission from the main thread first.
+You can display [browser notifications](https://developer.mozilla.org/en-US/docs/Web/API/Notifications_API) from the main thread or from worker threads using `notify()`. Arguments are the same as `Notification` constructor. This function ensures that the permission is requested first. In the case of workers, you will need to request the permission from the main thread first.
 
-To request permission on page load, add the "notifications" parameter to the script url or use `gousse.requestNotificationPermission()`.
+To request permission on page load, add the "notifications" parameter to the script url or use `requestNotificationPermission()`.
 
 ```html
 <script src="/gousse-worker.js?notifications"></script>
+```
+
+Example usage:
+
+```js
+const checkUpdates = worker(function() {
+    setInterval(() => {
+        fetch('/api/updates').then(r => r.json()).then(data => {
+            if (data.length) {
+                gousse.notify('Some updates are available!');
+                gousse.worker.send(data);
+            }
+        });
+    }, 600000);
+}, {start: true});
+
+checkUpdates.onmessage(data => {
+    // do something on UI?
+});
 ```
 
 ### Offline cache
 
 **IMPORTANT**: for offline cache to work, the gousse script needs to be located at the root of your public directory or be served with the header `Service-Worker-Allowed: /`.
 
-Gousse can cache your asset files using a [Service Worker](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API) for offline access. Activate caching for all included assets via script and rel tags using the *cache* parameter in the script url.
+Gousse can cache your asset files using a [Service Worker](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API) for offline access. Activate caching for all included assets via script and link tags using the *cache* parameter in the script url.
 
 ```html
 <script src="/gousse-worker.js?cache"></script>
@@ -568,10 +624,7 @@ This means the cache should always be up to date with the latest version of your
 You can add files to the cache at any moment using `cache(assets)`:
 
 ```js
-cache([
-    '/my-file.js',
-    '/data.json'
-]);
+cache(['/my-file.js', '/data.json']);
 ```
 
 You can also provide a version number or cache name to invalidate any previous cache. Either as a parameter `gousse-worker.js?cache=v2` or as the second parameter to the `cache()` function. The default name is *v1*.

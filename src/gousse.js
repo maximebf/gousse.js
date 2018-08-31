@@ -258,7 +258,7 @@ const dom = {
                     dom.append(parent, nodes, placeholder);
                     parent.removeChild(placeholder);
                 });
-            } else if (node) {
+            } else if (node || node === 0) {
                 if (!(node instanceof Node) && !(node instanceof DocumentFragment)) {
                     node = document.createTextNode(node);
                 }
@@ -300,8 +300,8 @@ const h = dom.create;
  * The following prototype is also accepted: connect(events, placeholder, onceOnly) where
  * events in an object where the keys are eventNames and values listeners.
  */
-function connect(eventName, listener, placeholder, onceOnly) {
-    const container = h('div', {class: 'gousse-connect'});
+function connect(eventName, listener, placeholder, onceOnly, wrapperTagName, wrapperAttrs) {
+    const container = h(wrapperTagName || 'div', Object.assign({class: 'gousse-connect'}, wrapperAttrs || {}));
     const render = e => {
         let result = listener(e, render);
         if (result) {
@@ -327,6 +327,9 @@ function connect(eventName, listener, placeholder, onceOnly) {
     }
     return container;
 }
+
+connect.span = (eventName, listener, placeholder, onceOnly, wrapperAttrs) =>
+    connect(eventName, listener, placeholder, onceOnly, 'span', wrapperAttrs);
 
 /**
  * Return a DocumentFragment from a template
@@ -661,10 +664,7 @@ ready(() => {
         });
     }
 
-    document.head.appendChild(h('style', {type: 'text/css'}, `
-        .gousse-hide { display: none; }
-        .gousse-connect { display: inline-block; }
-    `));
+    document.head.appendChild(h('style', {type: 'text/css'}, '.gousse-hide { display: none; }'));
 });
 
 // exports

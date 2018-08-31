@@ -141,6 +141,23 @@ function store(items, persisted) {
     });
 }
 
-Object.assign(gousse, {observe, debounce, persist, store});
+/**
+ * Cache some data (which must be JSON serializable) in localStorage for *ttl* amount of time
+ */
+async function localCache(key, ttl, setter) {
+    let data = localStorage.getItem(key);
+    if (data !== null) {
+        data = JSON.parse(data);
+        if ((new Date().getTime() - data.timestamp) <= ttl) {
+            return data.data;
+        }
+        localStorage.removeItem(key);
+    }
+    data = await setter();
+    localStorage.setItem(key, JSON.stringify({timestamp: new Date().getTime(), data}));
+    return data;
+}
+
+Object.assign(gousse, {observe, debounce, persist, store, localCache});
 
 });

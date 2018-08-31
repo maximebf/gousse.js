@@ -421,11 +421,18 @@ ui.formGroupSimplemdeEditor = component('bs-form-group-simplemde-editor', (attrs
 ui.chartjs = component('chart-js', function(attrs, children) {
     return ui.loadAssets('chartjs').then(() => {
         this.onconnect(() => {
-            const chart = new Chart(this.node, Object.assign({
+            const chart = new Chart(this.querySelector('canvas'), Object.assign({
                 responsive: true
             }, attrs));
         });
-        return h('canvas', mergeattrs(attrs, {width: "100%", height: "100%"}, {}, ['width', 'height', 'id']));
+        let style = "position:relative;";
+        if (attrs.width) {
+            style += `width:${attrs.width || "100%"};`;
+        }
+        if (attrs.height) {
+            style += `height:${attrs.height || "100%"};`;
+        }
+        return h('div', mergeattrs(attrs, {'class': 'chart-container', style}, {}, ['id']), h('canvas'));
     });
 });
 

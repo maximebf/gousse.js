@@ -144,18 +144,24 @@ function store(items, persisted) {
 /**
  * Cache some data (which must be JSON serializable) in localStorage for *ttl* amount of time
  */
-async function localCache(key, ttl, setter) {
+const localCacheSetterPromises = {};
+function localCache(key, ttl, setter) {
+    if (key in localCacheSetterPromises) {
+        return localCacheSetterPromises[key];
+    }
     let data = localStorage.getItem(key);
     if (data !== null) {
         data = JSON.parse(data);
         if ((new Date().getTime() - data.timestamp) <= ttl) {
-            return data.data;
+            return Promise.resolve(data.data);
         }
-        localStorage.removeItem(key);
     }
-    data = await setter();
-    localStorage.setItem(key, JSON.stringify({timestamp: new Date().getTime(), data}));
-    return data;
+    localCacheSetterPromises[key] = setter().then(data => {
+        localStorage.setItem(key, JSON.stringify({timestamp: new Date().getTime(), data}));
+        delete localCacheSetterPromises[key];
+        return data;
+    });
+    return localCacheSetterPromises[key];
 }
 
 Object.assign(gousse, {observe, debounce, persist, store, localCache});

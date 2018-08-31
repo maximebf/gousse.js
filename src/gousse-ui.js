@@ -40,6 +40,12 @@ ui.assets = {
     simplemde: [
         'https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css',
         'https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js'
+    ],
+    chartjs: [
+        'https://cdnjs.com/libraries/Chart.js'
+    ],
+    momentjs: [
+        'https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment.min.js'
     ]
 };
 
@@ -406,6 +412,20 @@ ui.formGroupSimplemdeEditor = component('bs-form-group-simplemde-editor', (attrs
     ui.formGroup(mergeattrs(attrs, {}, {}, ['label', 'for', 'help']),
         ui.simplemdeEditor(mergeattrs(attrs, {}, {help: null, for: null, label: null}), children))
 );
+
+
+/*****************************************************************************************************
+ * Chart.js component
+ */
+
+ui.chartjs = component('chart-js', function(attrs, children) {
+    return ui.loadAssets('chartjs').then(() => {
+        this.onconnect(() => {
+            const chart = new Chart(this.node, attrs);
+        });
+        return h('canvas', mergeattrs(attrs, {width: 400, height: 400}, {}, ['width', 'height', 'id']));
+    });
+});
 
 
 /*****************************************************************************************************/

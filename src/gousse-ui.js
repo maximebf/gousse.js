@@ -42,7 +42,7 @@ ui.assets = {
         'https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js'
     ],
     chartjs: [
-        'https://cdnjs.com/libraries/Chart.js'
+        'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.2/Chart.bundle.min.js'
     ],
     momentjs: [
         'https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment.min.js'

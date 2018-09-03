@@ -12,7 +12,7 @@
     root.gousse.importGlobals(true);
 })(this, gousse => {
 
-const {on, dispatch, component, debouncePromise, localCache, ui, h} = gousse;
+const h = gousse.h, ui = gousse.ui;
 
 function formatAmount(amount) {
     let amountStr = amount.toString();
@@ -39,9 +39,9 @@ function dataSource(name, getter, options) {
         cacheKey: `datasource.${name}`,
         cacheTime: 300 * 1000,
         refreshInterval: 300 * 1000,
-        get: debouncePromise((forceRefresh) => {
+        get: gousse.debouncePromise((forceRefresh) => {
             const wrappedGetter = () => {
-                dispatch(`${ds.eventNamespace}.refreshstart`);
+                gousse.dispatch(`${ds.eventNamespace}.refreshstart`);
                 return getter();
             };
             if (forceRefresh || !ds.cacheKey) {
@@ -52,13 +52,13 @@ function dataSource(name, getter, options) {
                     return data;
                 });
             }
-            return localCache(ds.cacheKey, ds.refreshInterval || ds.cacheTime, wrappedGetter);
+            return gousse.localCache(ds.cacheKey, ds.refreshInterval || ds.cacheTime, wrappedGetter);
         }),
         dispatch(force) {
-            return ds.get(force).then(data => dispatch(ds.eventName, data));
+            return ds.get(force).then(data => gousse.dispatch(ds.eventName, data));
         },
         refresh(force) {
-            dispatch(`${ds.eventNamespace}.refreshstart`);
+            gousse.dispatch(`${ds.eventNamespace}.refreshstart`);
             return ds.dispatch(true);
         },
         start() {
@@ -66,10 +66,10 @@ function dataSource(name, getter, options) {
             ds.dispatch();
         },
         on(...args) {
-            return on(ds.eventName, ...args);
+            return gousse.on(ds.eventName, ...args);
         },
         connect(...args) {
-            return connect(ds.eventName, ...args);
+            return gousse.connect(ds.eventName, ...args);
         }
     }, options || {});
     dataSource.sources[name] = ds;
@@ -104,7 +104,7 @@ function dataSourceReducer(name, sources, reducer, options) {
     return ds;
 }
 
-const widgetRow = component('widget-row', (attrs, children) => {
+const widgetRow = gousse.component('widget-row', (attrs, children) => {
     return h('div', ui.mergeattrs(attrs, {'class': 'card-deck mb-2'}), children);
 }, 'replace');
 
@@ -112,7 +112,7 @@ const widgetRow = component('widget-row', (attrs, children) => {
  * 
  */
 function widget(name, title, datasource, getter, defaultAttrs) {
-    return component(name, function(attrs, children) {
+    return gousse.component(name, function(attrs, children) {
         const loader = h('p', {'class': 'card-text text-center'}, ui.icon({i: 'spinner', spin: true}));
         const header = [
             h('span', {'class': 'align-middle'}, title),
@@ -121,7 +121,7 @@ function widget(name, title, datasource, getter, defaultAttrs) {
             }}, ui.icon({i: 'refresh'}))
         ];
         return ui.card(ui.mergeattrs(attrs, ui.mergeattrs(defaultAttrs || {}, {class: 'w-100', header})),
-            connect({
+            gousse.connect({
                 [datasource.eventName]: e => getter.call(this, e.detail),
                 [`${datasource.eventNamespace}.refreshstart`]: e => loader
             }, loader)

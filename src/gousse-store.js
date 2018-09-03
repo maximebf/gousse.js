@@ -191,6 +191,6 @@ localCache.put = function(key, data) {
     });
 };
 
-Object.assign(gousse, {observe, debounce, persist, store, localCache});
+Object.assign(gousse, {observe, debounce, debouncePromise, persist, store, localCache});
 
 });

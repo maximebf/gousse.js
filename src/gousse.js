@@ -302,14 +302,14 @@ const h = dom.create;
  */
 function connect(eventName, listener, placeholder, onceOnly, wrapperTagName, wrapperAttrs) {
     const container = h(wrapperTagName || 'div', Object.assign({class: 'gousse-connect'}, wrapperAttrs || {}));
-    const render = e => {
-        let result = listener(e, render);
+    const replace = result => {
         if (result) {
             dom.content(container, result);
         } else if (result === false) {
             container.innerHTML = '';
         }
     };
+    const render = e => replace(listener(e, render));
 
     if (eventName instanceof Promise) {
         eventName.then(render);
@@ -317,7 +317,7 @@ function connect(eventName, listener, placeholder, onceOnly, wrapperTagName, wra
         on(eventName, render, onceOnly);
     } else {
         [onceOnly, placeholder, listener] = [false, listener, null];
-        Object.entries(eventName).forEach(([key, value]) => on(key, e => dom.content(container, value(e))));
+        Object.entries(eventName).forEach(([key, value]) => on(key, e => replace(value(e))));
     }
 
     if (placeholder === true && listener) {

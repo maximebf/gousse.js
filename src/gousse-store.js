@@ -66,18 +66,38 @@ function observe(object, listener, deep, notifyOnMethods) {
  * Prevents a function to be executed until it has stopped being called for *wait* milliseconds.
  */
 function debounce(func, wait, thisArg) {
-    let timeout, args, debounced = function() {
-      args = arguments;
-      clearTimeout(timeout);
-      timeout = setTimeout(function() {
-        timeout = null;
-        func.apply(thisArg, args);
-      }, wait || 100);
+    let timeout, debounced = function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(function() {
+            timeout = null;
+            func.apply(thisArg, args);
+        }, wait || 100);
     };
     debounced.immediate = function() {
-      clearTimeout(timeout);
-      timeout = null;
-      return func.apply(thisArg, arguments);
+        clearTimeout(timeout);
+        timeout = null;
+        return func.apply(thisArg, arguments);
+    };
+    return debounced;
+}
+
+/**
+ * Do not call a function again will the last promised returned has not resolved
+ */
+function debouncePromise(func, thisArg) {
+    let promise;
+    const debounced = function(...args) {
+        if (promise) {
+            return promise;
+        }
+        return debounced.immediate(...args);
+    };
+    debounced.immediate = function(...args) {
+        promise = func.apply(thisArg, args);
+        promise.then(() => {
+            promise = null;
+        });
+        return promise;
     };
     return debounced;
 }
@@ -157,12 +177,19 @@ function localCache(key, ttl, setter) {
         }
     }
     localCacheSetterPromises[key] = setter().then(data => {
-        localStorage.setItem(key, JSON.stringify({timestamp: new Date().getTime(), data}));
+        localCache.put(key, data);
         delete localCacheSetterPromises[key];
         return data;
     });
     return localCacheSetterPromises[key];
 }
+
+localCache.put = function(key, data) {
+    return Promise.resolve(data).then(data => {
+        localStorage.setItem(key, JSON.stringify({timestamp: new Date().getTime(), data}));
+        return data;
+    });
+};
 
 Object.assign(gousse, {observe, debounce, persist, store, localCache});
 

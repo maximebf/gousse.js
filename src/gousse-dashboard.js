@@ -12,7 +12,7 @@
     root.gousse.importGlobals(true);
 })(this, gousse => {
 
-const h = gousse.h, ui = gousse.ui;
+const h = gousse.h;
 
 function formatAmount(amount) {
     let amountStr = amount.toString();
@@ -105,7 +105,7 @@ function dataSourceReducer(name, sources, reducer, options) {
 }
 
 const widgetRow = gousse.component('widget-row', (attrs, children) => {
-    return h('div', ui.mergeattrs(attrs, {'class': 'card-deck mb-2'}), children);
+    return h('div', gousse.ui.mergeattrs(attrs, {'class': 'card-deck mb-2'}), children);
 }, 'replace');
 
 /**
@@ -113,14 +113,14 @@ const widgetRow = gousse.component('widget-row', (attrs, children) => {
  */
 function widget(name, title, datasource, getter, defaultAttrs) {
     return gousse.component(name, function(attrs, children) {
-        const loader = h('p', {'class': 'card-text text-center'}, ui.icon({i: 'spinner', spin: true}));
+        const loader = h('p', {'class': 'card-text text-center'}, gousse.ui.icon({i: 'spinner', spin: true}));
         const header = [
             h('span', {'class': 'align-middle'}, title),
-            ui.btn({color: 'light', size: 'sm', 'class': 'float-right', onclick: () => {
+            gousse.ui.btn({color: 'light', size: 'sm', 'class': 'float-right', onclick: () => {
                 datasource.refresh();
-            }}, ui.icon({i: 'refresh'}))
+            }}, gousse.ui.icon({i: 'refresh'}))
         ];
-        return ui.card(ui.mergeattrs(attrs, ui.mergeattrs(defaultAttrs || {}, {class: 'w-100', header})),
+        return gousse.ui.card(gousse.ui.mergeattrs(attrs, gousse.ui.mergeattrs(defaultAttrs || {}, {class: 'w-100', header})),
             gousse.connect({
                 [datasource.eventName]: e => getter.call(this, e.detail),
                 [`${datasource.eventNamespace}.refreshstart`]: e => loader
@@ -132,7 +132,7 @@ function widget(name, title, datasource, getter, defaultAttrs) {
 function valueWidget(name, title, datasource, getter, defaultAttrs) {
     return widget(name, title, datasource, function(data) {
         return h('p', {'class': 'card-text'}, h('strong', {}, getter.call(this, data)));
-    }, ui.mergeattrs(defaultAttrs || {}, {'class': 'text-center'}));
+    }, gousse.ui.mergeattrs(defaultAttrs || {}, {'class': 'text-center'}));
 }
 
 gousse.dashboard = {formatAmount, dataSource, dataSourceReducer, widgetRow, widget, valueWidget};
